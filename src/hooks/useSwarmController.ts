@@ -1,25 +1,30 @@
 /**
  * useSwarmController — Orchestrates the swarm from the frontend perspective.
- * 
+ *
  * FRONTEND RESPONSIBILITY:
- * Consumes events from the backend simulation and maintains UI state.
- * In production, this hook would only listen to Socket.io events —
- * the SwarmOrchestrator would run on the server.
- * 
- * ElevenLabs Integration Points:
- *   - Agents marked with elevenlabsReady=true would trigger real outbound calls
- *   - The "agent:booked" event would come from an ElevenLabs webhook
- *   - Tool calling would POST to /call-status on the backend
+ * This hook is a PURE EVENT CONSUMER. It does NOT contain any booking logic,
+ * winner selection, or agent state management. All of that lives in the
+ * SwarmOrchestrator (backend).
+ *
+ * In production, this hook would:
+ *   1. POST /start-swarm to kick off the swarm
+ *   2. Listen to Socket.io events for real-time updates
+ *   3. Render whatever the server tells it to render
+ *
+ * Migration to real backend:
+ *   - Replace `new SwarmOrchestrator().start()` → `fetch('/api/start-swarm', { method: 'POST' })`
+ *   - Replace `eventBus.on()` → `socket.on()` (via useRealtimeEvents)
+ *   - No other changes required
  */
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useRef } from "react";
 import { SwarmOrchestrator } from "@/backend/SwarmOrchestrator";
 import { useRealtimeEvents } from "./useRealtimeEvents";
 import type {
   ProviderAgent,
-  AgentStatus,
   SwarmStartPayload,
   SwarmUpdatePayload,
+  SwarmCompletedPayload,
 } from "@/backend/types";
 
 export interface SwarmControllerResult {
@@ -31,14 +36,6 @@ export interface SwarmControllerResult {
   reset: () => void;
 }
 
-function parseTime(t: string): number {
-  const [time, period] = t.split(" ");
-  let [h, m] = time.split(":").map(Number);
-  if (period === "PM" && h !== 12) h += 12;
-  if (period === "AM" && h === 12) h = 0;
-  return h * 60 + m;
-}
-
 export function useSwarmController(): SwarmControllerResult {
   const [agents, setAgents] = useState<ProviderAgent[]>([]);
   const [winner, setWinner] = useState<ProviderAgent | null>(null);
@@ -46,101 +43,56 @@ export function useSwarmController(): SwarmControllerResult {
   const [logs, setLogs] = useState<string[]>([]);
 
   const orchestratorRef = useRef<SwarmOrchestrator | null>(null);
-  const { on, emit } = useRealtimeEvents();
 
   const addLog = useCallback((msg: string) => {
     setLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);
   }, []);
 
-  // Subscribe to backend events
-  useEffect(() => {
-    // swarm:start — Initialize agent list
-    const unsubStart = on("swarm:start", (payload) => {
-      const data = payload as SwarmStartPayload;
-      setAgents(data.agents);
-      addLog("🚀 Swarm initiated — dispatching 5 AI agents...");
-      addLog(`📡 Swarm ID: ${data.swarmId}`);
-    });
+  // ── Subscribe to backend events (read-only consumption) ──
 
-    // swarm:update — Individual agent status change
-    const unsubUpdate = on("swarm:update", (payload) => {
-      const data = payload as SwarmUpdatePayload;
+  // swarm:start — Initialize agent list
+  useRealtimeEvents("swarm:start", (payload) => {
+    const data = payload as SwarmStartPayload;
+    setAgents(data.agents);
+    addLog("🚀 Swarm initiated — dispatching 5 AI agents...");
+    addLog(`📡 Swarm ID: ${data.swarmId}`);
+  });
 
-      setAgents((prev) =>
-        prev.map((a) =>
-          a.id === data.agentId
-            ? { ...a, status: data.status, slotTime: data.slotTime }
-            : a
-        )
-      );
+  // swarm:update — Individual agent status change
+  useRealtimeEvents("swarm:update", (payload) => {
+    const data = payload as SwarmUpdatePayload;
 
-      if (data.message) {
-        addLog(data.message);
-      }
-    });
+    setAgents((prev) =>
+      prev.map((a) =>
+        a.id === data.agentId
+          ? { ...a, status: data.status, slotTime: data.slotTime ?? a.slotTime }
+          : a
+      )
+    );
 
-    // swarm:request-state — Orchestrator asks us to evaluate winner
-    // (In production, the server does this — here we handle it client-side)
-    const unsubRequestState = on("swarm:request-state", () => {
-      setAgents((current) => {
-        const booked = current.filter(
-          (a) => a.status === "booked" && a.slotTime
-        );
+    if (data.message) {
+      addLog(data.message);
+    }
+  });
 
-        if (booked.length > 0) {
-          const best = booked.reduce((a, b) =>
-            parseTime(a.slotTime!) <= parseTime(b.slotTime!) ? a : b
-          );
+  // swarm:completed — Backend resolved the winner
+  useRealtimeEvents("swarm:completed", (payload) => {
+    const data = payload as SwarmCompletedPayload;
 
-          setWinner(best);
-          addLog(`🏆 Winner: ${best.name} at ${best.slotTime}`);
+    // Apply final agent state from the server
+    setAgents(data.allAgents);
+    setIsRunning(false);
 
-          // Emit agent:booked event (would go to webhook in production)
-          emit("agent:booked", {
-            swarmId: "",
-            agentId: best.id,
-            providerName: best.name,
-            slotTime: best.slotTime,
-          });
+    if (data.winnerId && data.winnerName && data.winnerSlot) {
+      const winnerAgent = data.allAgents.find((a) => a.id === data.winnerId) ?? null;
+      setWinner(winnerAgent);
+      addLog(`🏆 Winner: ${data.winnerName} at ${data.winnerSlot}`);
+    } else {
+      addLog("⚠️ No valid slots found. Try again.");
+    }
+  });
 
-          // Cancel non-winners
-          const updated = current.map((a) => {
-            if (a.id === best.id) return { ...a, status: "booked" as AgentStatus };
-            if (a.status === "booked") return { ...a, status: "cancelled" as AgentStatus };
-            return a;
-          });
-
-          setIsRunning(false);
-          emit("swarm:completed", {
-            swarmId: "",
-            winnerId: best.id,
-            winnerName: best.name,
-            winnerSlot: best.slotTime,
-            allAgents: updated,
-          });
-
-          return updated;
-        } else {
-          addLog("⚠️ No valid slots found. Try again.");
-          setIsRunning(false);
-          emit("swarm:completed", {
-            swarmId: "",
-            winnerId: null,
-            winnerName: null,
-            winnerSlot: null,
-            allAgents: current,
-          });
-          return current;
-        }
-      });
-    });
-
-    return () => {
-      unsubStart();
-      unsubUpdate();
-      unsubRequestState();
-    };
-  }, [on, emit, addLog]);
+  // ── Actions ────────────────────────────────────────────────
 
   const startSwarm = useCallback(() => {
     // Clean up previous run
@@ -151,7 +103,12 @@ export function useSwarmController(): SwarmControllerResult {
     setLogs([]);
     setAgents([]);
 
-    // Create orchestrator and start (simulates POST /start-swarm)
+    /**
+     * In production, replace with:
+     *   await fetch('/api/start-swarm', { method: 'POST' });
+     * The server would create the orchestrator and emit events
+     * over the Socket.io connection this client is subscribed to.
+     */
     const orchestrator = new SwarmOrchestrator();
     orchestratorRef.current = orchestrator;
     orchestrator.start();

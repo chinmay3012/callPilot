@@ -1,6 +1,6 @@
 /**
  * SwarmOrchestrator — Simulates the Node.js backend orchestrator.
- * 
+ *
  * BACKEND RESPONSIBILITY:
  * In production, this entire module runs on the server.
  * It would:
@@ -8,8 +8,24 @@
  *   2. Manage parallel outbound calls
  *   3. Receive webhook callbacks with slot offers
  *   4. Apply booking logic and emit results via Socket.io
- * 
+ *   5. Write confirmed bookings to the database
+ *
  * The simulation preserves identical event shapes and timing behavior.
+ *
+ * ─── Integration Points ───────────────────────────────────
+ *
+ * ElevenLabs Voice Calls:
+ *   In production, each agent would trigger an outbound call via
+ *   the ElevenLabs Conversational AI API. The agent would use
+ *   tool-calling to report the offered slot back to this orchestrator.
+ *
+ * Webhook Callbacks:
+ *   POST /call-status would receive slot offers from voice agents.
+ *   The orchestrator would process them identically to the simulation.
+ *
+ * Database Writes:
+ *   Confirmed bookings would be persisted via Supabase/Postgres
+ *   before emitting the swarm:completed event.
  */
 
 import { eventBus } from "./EventBus";
@@ -22,7 +38,7 @@ import type {
   AgentBookedPayload,
 } from "./types";
 
-// --- Provider configuration ---
+// ─── Provider Configuration ─────────────────────────────────
 const PROVIDER_CONFIG: Omit<ProviderAgent, "status" | "slotTime">[] = [
   { id: "agent-1", name: "Dentist A", elevenlabsReady: true },
   { id: "agent-2", name: "Dentist B", elevenlabsReady: false },
@@ -39,7 +55,7 @@ const MOCK_SLOTS = [
 
 const MIN_VALID_TIME = "9:30 AM";
 
-// --- Utilities ---
+// ─── Utilities ──────────────────────────────────────────────
 function parseTime(t: string): number {
   const [time, period] = t.split(" ");
   let [h, m] = time.split(":").map(Number);
@@ -60,22 +76,33 @@ function generateSwarmId(): string {
   return `swarm-${Date.now().toString(36)}`;
 }
 
-// --- Orchestrator ---
+// ─── Orchestrator ───────────────────────────────────────────
 export class SwarmOrchestrator {
   private timeouts: number[] = [];
   private swarmId: string | null = null;
   private winnerSelected = false;
 
   /**
+   * Authoritative agent state — owned by the orchestrator.
+   * In production this lives in server memory / Redis.
+   */
+  private agents: ProviderAgent[] = [];
+
+  /**
    * POST /start-swarm
    * Kicks off parallel agent calls and emits real-time updates.
+   *
+   * In production:
+   *   - Each agent would initiate an ElevenLabs outbound voice call
+   *   - The voice agent uses tool-calling to POST slot offers to /call-status
+   *   - This method would return the swarmId for the client to subscribe to
    */
   start(): void {
     this.cleanup();
     this.winnerSelected = false;
     this.swarmId = generateSwarmId();
 
-    const agents: ProviderAgent[] = PROVIDER_CONFIG.map((p) => ({
+    this.agents = PROVIDER_CONFIG.map((p) => ({
       ...p,
       status: "searching" as const,
       slotTime: null,
@@ -84,68 +111,141 @@ export class SwarmOrchestrator {
     // Emit swarm:start (equivalent to Socket.io room broadcast)
     const startPayload: SwarmStartPayload = {
       swarmId: this.swarmId,
-      agents,
+      agents: this.agents,
       timestamp: Date.now(),
     };
     eventBus.emit("swarm:start", startPayload);
 
-    const delays = agents.map(() => randomDelay());
-    const slots = agents.map(() => randomSlot());
+    // ── Simulate parallel agent calls ──
+    const delays = this.agents.map(() => randomDelay());
+    const slots = this.agents.map(() => randomSlot());
     const minTime = parseTime(MIN_VALID_TIME);
     let completedCount = 0;
 
-    agents.forEach((agent, i) => {
+    this.agents.forEach((agent, i) => {
       const baseDelay = delays[i];
       const slot = slots[i];
 
-      // Phase 1: Calling (30% through delay)
+      /**
+       * Phase 1: Calling (30% through delay)
+       * Production: ElevenLabs call connected, agent greeting sent
+       */
       this.schedule(baseDelay * 0.3, () => {
         if (this.winnerSelected) return;
+        this.updateAgent(agent.id, "calling", null);
         this.emitUpdate(agent.id, "calling", null, `📞 ${agent.name}: Dialing provider...`);
       });
 
-      // Phase 2: Negotiating (65% through delay)
+      /**
+       * Phase 2: Negotiating (65% through delay)
+       * Production: Voice agent received slot offer via tool-calling
+       */
       this.schedule(baseDelay * 0.65, () => {
         if (this.winnerSelected) return;
+        this.updateAgent(agent.id, "negotiating", slot);
         this.emitUpdate(agent.id, "negotiating", slot, `🤝 ${agent.name}: Negotiating — offered ${slot}`);
       });
 
-      // Phase 3: Result (full delay)
+      /**
+       * Phase 3: Result (full delay)
+       * Production: POST /call-status webhook received from ElevenLabs tool call
+       */
       this.schedule(baseDelay, () => {
         completedCount++;
         const isValid = parseTime(slot) >= minTime;
 
         if (this.winnerSelected) {
-          // Another agent already won — cancel this one
+          this.updateAgent(agent.id, "cancelled", slot);
           this.emitUpdate(agent.id, "cancelled", slot, `⏹️ ${agent.name}: Cancelled (winner already selected)`);
         } else if (isValid) {
+          this.updateAgent(agent.id, "booked", slot);
           this.emitUpdate(agent.id, "booked", slot, `✅ ${agent.name}: Slot ${slot} accepted`);
         } else {
+          this.updateAgent(agent.id, "rejected", slot);
           this.emitUpdate(agent.id, "rejected", slot, `❌ ${agent.name}: Slot ${slot} rejected (before 9:30 AM)`);
         }
 
         // Check completion after a short settle
-        this.schedule(300, () => this.checkCompletion(agents.length, completedCount));
+        this.schedule(300, () => this.evaluateAndComplete(completedCount));
       });
     });
   }
 
   /**
-   * Evaluate all results and pick the winner.
-   * 
    * BOOKING LOGIC (mirrors real agent decision engine):
-   *   1. Filter agents with status "booked"
-   *   2. Find earliest valid slot
-   *   3. Mark winner; cancel/reject all others
+   *   1. Wait for all agents to finish
+   *   2. Filter agents with status "booked"
+   *   3. Find earliest valid slot
+   *   4. Mark winner; cancel all others
+   *   5. Emit swarm:completed with final state
+   *
+   * In production:
+   *   - This would also write the booking to the database
+   *   - Send confirmation email/SMS to the patient
+   *   - Hang up remaining active calls via ElevenLabs API
    */
-  private checkCompletion(total: number, completed: number): void {
-    if (completed < total || this.winnerSelected) return;
+  private evaluateAndComplete(completed: number): void {
+    if (completed < this.agents.length || this.winnerSelected) return;
     this.winnerSelected = true;
 
-    // Gather current state from event history
-    // In simulation we reconstruct from what we emitted
-    // In production the server has authoritative state
-    eventBus.emit("swarm:request-state", { swarmId: this.swarmId });
+    const booked = this.agents.filter(
+      (a) => a.status === "booked" && a.slotTime
+    );
+
+    if (booked.length > 0) {
+      // Pick earliest valid slot
+      const winner = booked.reduce((a, b) =>
+        parseTime(a.slotTime!) <= parseTime(b.slotTime!) ? a : b
+      );
+
+      // Cancel non-winners
+      this.agents = this.agents.map((a) => {
+        if (a.id === winner.id) return { ...a, status: "booked" as AgentStatus };
+        if (a.status === "booked") {
+          // Emit cancel for each non-winning booked agent
+          this.emitUpdate(a.id, "cancelled", a.slotTime, `⏹️ ${a.name}: Cancelled (not earliest slot)`);
+          return { ...a, status: "cancelled" as AgentStatus };
+        }
+        return a;
+      });
+
+      // Emit agent:booked (would go to webhook in production)
+      const bookedPayload: AgentBookedPayload = {
+        swarmId: this.swarmId!,
+        agentId: winner.id,
+        providerName: winner.name,
+        slotTime: winner.slotTime!,
+      };
+      eventBus.emit("agent:booked", bookedPayload);
+
+      // Emit swarm:completed with full state
+      const completedPayload: SwarmCompletedPayload = {
+        swarmId: this.swarmId!,
+        winnerId: winner.id,
+        winnerName: winner.name,
+        winnerSlot: winner.slotTime,
+        allAgents: [...this.agents],
+      };
+      eventBus.emit("swarm:completed", completedPayload);
+    } else {
+      // No valid slots — emit completed with null winner
+      const completedPayload: SwarmCompletedPayload = {
+        swarmId: this.swarmId!,
+        winnerId: null,
+        winnerName: null,
+        winnerSlot: null,
+        allAgents: [...this.agents],
+      };
+      eventBus.emit("swarm:completed", completedPayload);
+    }
+  }
+
+  // ─── Internal helpers ──────────────────────────────────────
+
+  private updateAgent(agentId: string, status: AgentStatus, slotTime: string | null): void {
+    this.agents = this.agents.map((a) =>
+      a.id === agentId ? { ...a, status, slotTime: slotTime ?? a.slotTime } : a
+    );
   }
 
   private emitUpdate(agentId: string, status: AgentStatus, slotTime: string | null, message: string): void {
@@ -169,5 +269,6 @@ export class SwarmOrchestrator {
     this.timeouts = [];
     this.swarmId = null;
     this.winnerSelected = false;
+    this.agents = [];
   }
 }

@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { Phone, PhoneCall, Handshake, CheckCircle2, XCircle, Search, Ban, Radio } from "lucide-react";
-import type { ProviderAgent, AgentStatus } from "@/backend/types";
+import type { ProviderAgent, AgentStatus } from "@/types/swarm";
 import { Badge } from "@/components/ui/badge";
 
 const statusConfig: Record<AgentStatus, { label: string; icon: React.ReactNode; className: string }> = {

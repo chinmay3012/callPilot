@@ -102,6 +102,13 @@ export class SwarmOrchestrator {
   private winnerSelected = false;
 
   /**
+   * Tracks how many agents have reported results via webhook.
+   * Used by processWebhookResult() to know when all agents are done.
+   * Not used during simulation (simulation tracks its own completedCount).
+   */
+  private webhookCompletedCount = 0;
+
+  /**
    * Authoritative agent state — owned by the orchestrator.
    * In production this lives in server memory / Redis.
    */
@@ -239,45 +246,100 @@ export class SwarmOrchestrator {
   }
 
   /**
-   * Process a webhook result from ElevenLabs (placeholder).
+   * Process a webhook result from ElevenLabs.
    *
    * ┌─────────────────────────────────────────────────────────┐
    * │ 🔌 INTEGRATION POINT: WEBHOOK PROCESSING               │
    * │                                                         │
-   * │ In production, the Express/Hono route handler for       │
-   * │ POST /call-status would call this method with the       │
-   * │ parsed webhook payload.                                 │
+   * │ In production, the POST /call-status route handler      │
+   * │ (see webhookHandler.ts) calls this method with the      │
+   * │ validated CallStatusWebhookPayload.                     │
    * │                                                         │
-   * │ This method is NOT called during simulation — it exists │
-   * │ to document the exact processing flow for real webhooks.│
+   * │ This method is NOT called during simulation. It exists  │
+   * │ as production-ready logic that processes real webhook    │
+   * │ payloads and emits the SAME events as the simulation.   │
+   * │                                                         │
+   * │ Event parity:                                           │
+   * │   Simulation emits → swarm:update, agent:booked,        │
+   * │                       swarm:completed                   │
+   * │   Webhook emits    → swarm:update, agent:booked,        │
+   * │                       swarm:completed                   │
+   * │   Identical. No UI changes needed.                      │
    * └─────────────────────────────────────────────────────────┘
    */
-  processWebhookResult(_payload: CallStatusWebhookPayload): void {
-    // In production, this would:
-    //
-    // 1. Validate the webhook signature
-    //    → Verify x-elevenlabs-signature header
-    //
-    // 2. Extract the tool call from payload.tool_calls
-    //    → const toolCall = payload.tool_calls
-    //        .find(tc => tc.tool_name === "book_appointment");
-    //
-    // 3. Parse the booking details
-    //    → const { provider_name, slot_time, reasoning } = toolCall.parameters;
-    //
-    // 4. Validate the slot meets constraints
-    //    → if (parseTime(slot_time) < parseTime(MIN_VALID_TIME)) reject;
-    //
-    // 5. Update agent state and emit events
-    //    → this.updateAgent(payload.agent_id, "booked", slot_time);
-    //    → this.emitUpdate(...);
-    //
-    // 6. Check if all agents have reported and evaluate winner
-    //    → this.evaluateAndComplete(completedCount);
-    //
-    // 7. If call_status === "failed" or "no_answer":
-    //    → this.updateAgent(payload.agent_id, "rejected", null);
-    //    → Log the failure reason
+  processWebhookResult(payload: CallStatusWebhookPayload): void {
+    const agent = this.agents.find((a) => a.id === payload.agent_id);
+    if (!agent) {
+      console.error(`[Webhook] Unknown agent_id: ${payload.agent_id}`);
+      return;
+    }
+
+    // ── Handle call failure / no answer ──────────────────────
+    if (payload.call_status === "failed" || payload.call_status === "no_answer") {
+      this.updateAgent(payload.agent_id, "rejected", null);
+      this.emitUpdate(
+        payload.agent_id,
+        "rejected",
+        null,
+        `❌ ${agent.name}: Call ${payload.call_status === "failed" ? "failed" : "not answered"}`
+      );
+      this.webhookCompletedCount++;
+      this.evaluateAndComplete(this.webhookCompletedCount);
+      return;
+    }
+
+    // ── Extract tool call ────────────────────────────────────
+    const toolCall = payload.tool_calls.find(
+      (tc) => tc.tool_name === "book_appointment"
+    );
+
+    if (!toolCall) {
+      // Call completed without invoking book_appointment — no slot found
+      this.updateAgent(payload.agent_id, "rejected", payload.offered_slot);
+      this.emitUpdate(
+        payload.agent_id,
+        "rejected",
+        payload.offered_slot,
+        `❌ ${agent.name}: No valid slot offered`
+      );
+      this.webhookCompletedCount++;
+      this.evaluateAndComplete(this.webhookCompletedCount);
+      return;
+    }
+
+    // ── Process the booking tool call ────────────────────────
+    const { slot_time, reasoning } = toolCall.parameters;
+    const minTime = parseTime(MIN_VALID_TIME);
+    const isValid = parseTime(slot_time) >= minTime;
+
+    if (this.winnerSelected) {
+      this.updateAgent(payload.agent_id, "cancelled", slot_time);
+      this.emitUpdate(
+        payload.agent_id,
+        "cancelled",
+        slot_time,
+        `⏹️ ${agent.name}: Cancelled (winner already selected)`
+      );
+    } else if (isValid && payload.booking_confirmed) {
+      this.updateAgent(payload.agent_id, "booked", slot_time);
+      this.emitUpdate(
+        payload.agent_id,
+        "booked",
+        slot_time,
+        `✅ ${agent.name}: Slot ${slot_time} accepted — ${reasoning}`
+      );
+    } else {
+      this.updateAgent(payload.agent_id, "rejected", slot_time);
+      this.emitUpdate(
+        payload.agent_id,
+        "rejected",
+        slot_time,
+        `❌ ${agent.name}: Slot ${slot_time} rejected (${isValid ? "not confirmed" : "before 9:30 AM"})`
+      );
+    }
+
+    this.webhookCompletedCount++;
+    this.evaluateAndComplete(this.webhookCompletedCount);
   }
 
   /**
@@ -416,6 +478,7 @@ export class SwarmOrchestrator {
     this.timeouts = [];
     this.swarmId = null;
     this.winnerSelected = false;
+    this.webhookCompletedCount = 0;
     this.agents = [];
   }
 }

@@ -1,13 +1,13 @@
 import { motion } from "framer-motion";
-import { Plane, RotateCcw, Zap } from "lucide-react";
+import { Plane, RotateCcw, Zap, Radio, Server, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ProviderCard } from "@/components/ProviderCard";
 import { LogConsole } from "@/components/LogConsole";
-import { useSwarm } from "@/hooks/useSwarm";
+import { useSwarmController } from "@/hooks/useSwarmController";
 
 const Index = () => {
-  const { providers, winner, isRunning, logs, startSwarm, reset } = useSwarm();
-  const hasStarted = providers.some((p) => p.status !== "idle");
+  const { agents, winner, isRunning, logs, startSwarm, reset } = useSwarmController();
+  const hasStarted = agents.length > 0;
 
   return (
     <div className="min-h-screen grid-bg gradient-radial">
@@ -20,14 +20,27 @@ const Index = () => {
               Call<span className="text-primary">Pilot</span>
             </span>
           </div>
-          <span className="text-xs font-mono text-muted-foreground hidden sm:block">
-            AI APPOINTMENT SWARM v1.0
-          </span>
+          <div className="hidden sm:flex items-center gap-3 text-xs font-mono text-muted-foreground">
+            <span className="flex items-center gap-1.5">
+              <Server className="w-3.5 h-3.5" />
+              Orchestrator
+            </span>
+            <span className="text-border">|</span>
+            <span className="flex items-center gap-1.5">
+              <Globe className="w-3.5 h-3.5" />
+              5 Agents
+            </span>
+            <span className="text-border">|</span>
+            <span className="flex items-center gap-1.5">
+              <Radio className="w-3.5 h-3.5 text-primary" />
+              ElevenLabs Ready
+            </span>
+          </div>
         </div>
       </header>
 
-      <main className="container py-12 max-w-4xl">
-        {/* Hero */}
+      <main className="container py-12 max-w-5xl">
+        {/* Landing / Hero */}
         {!hasStarted && (
           <motion.div
             initial={{ opacity: 0, y: 30 }}
@@ -40,9 +53,12 @@ const Index = () => {
               <br />
               <span className="text-primary glow-text">For You</span>
             </h1>
-            <p className="text-muted-foreground max-w-xl mx-auto mb-8 text-lg">
+            <p className="text-muted-foreground max-w-2xl mx-auto mb-4 text-lg">
               CallPilot dispatches a swarm of AI agents to call multiple providers
-              simultaneously and books the earliest available slot.
+              simultaneously, negotiate available slots, and book the earliest appointment — all in seconds.
+            </p>
+            <p className="text-muted-foreground/60 max-w-xl mx-auto mb-10 text-sm font-mono">
+              Parallel AI calls &middot; Real-time negotiation &middot; Automatic booking
             </p>
             <Button
               size="lg"
@@ -52,10 +68,27 @@ const Index = () => {
               <Zap className="w-5 h-5" />
               Find Dentist Appointment
             </Button>
+
+            {/* Architecture badges */}
+            <div className="mt-12 flex flex-wrap justify-center gap-3">
+              {[
+                { icon: <Server className="w-3.5 h-3.5" />, label: "Node.js Backend Ready" },
+                { icon: <Globe className="w-3.5 h-3.5" />, label: "Socket.io Events" },
+                { icon: <Radio className="w-3.5 h-3.5" />, label: "ElevenLabs Voice AI" },
+              ].map((badge) => (
+                <span
+                  key={badge.label}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border bg-card text-xs text-muted-foreground font-mono"
+                >
+                  {badge.icon}
+                  {badge.label}
+                </span>
+              ))}
+            </div>
           </motion.div>
         )}
 
-        {/* Dashboard */}
+        {/* Swarm Dashboard */}
         {hasStarted && (
           <motion.div
             initial={{ opacity: 0 }}
@@ -66,7 +99,11 @@ const Index = () => {
               <div>
                 <h2 className="text-2xl font-bold text-foreground">Agent Swarm</h2>
                 <p className="text-sm text-muted-foreground font-mono">
-                  {isRunning ? "Agents active..." : winner ? "Mission complete" : "No valid slots"}
+                  {isRunning
+                    ? "Agents active — negotiating slots…"
+                    : winner
+                    ? "Mission complete — appointment secured"
+                    : "No valid slots found"}
                 </p>
               </div>
               <Button
@@ -101,11 +138,11 @@ const Index = () => {
 
             {/* Provider grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {providers.map((provider) => (
+              {agents.map((agent) => (
                 <ProviderCard
-                  key={provider.id}
-                  provider={provider}
-                  isWinner={winner?.id === provider.id}
+                  key={agent.id}
+                  provider={agent}
+                  isWinner={winner?.id === agent.id}
                 />
               ))}
             </div>

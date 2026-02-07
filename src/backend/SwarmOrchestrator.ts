@@ -1,34 +1,51 @@
 /**
  * SwarmOrchestrator — Simulates the Node.js backend orchestrator.
  *
- * BACKEND RESPONSIBILITY:
- * In production, this entire module runs on the server.
- * It would:
- *   1. Spawn real AI voice agents (ElevenLabs) for each provider
- *   2. Manage parallel outbound calls
- *   3. Receive webhook callbacks with slot offers
- *   4. Apply booking logic and emit results via Socket.io
- *   5. Write confirmed bookings to the database
+ * ═══════════════════════════════════════════════════════════════════════
+ *  BACKEND RESPONSIBILITY — Runs on the server in production
+ * ═══════════════════════════════════════════════════════════════════════
+ *
+ * In production, this module:
+ *   1. Spawns real ElevenLabs voice agents for each provider
+ *   2. Manages parallel outbound calls via the ElevenLabs API
+ *   3. Receives webhook callbacks at POST /call-status with tool call results
+ *   4. Applies booking logic and emits results via Socket.io
+ *   5. Writes confirmed bookings to the database
  *
  * The simulation preserves identical event shapes and timing behavior.
  *
- * ─── Integration Points ───────────────────────────────────
+ * ─── ElevenLabs Integration Points ────────────────────────────────────
  *
- * ElevenLabs Voice Calls:
- *   In production, each agent would trigger an outbound call via
- *   the ElevenLabs Conversational AI API. The agent would use
- *   tool-calling to report the offered slot back to this orchestrator.
+ * This file contains clearly marked integration points where the
+ * simulation will be replaced with real ElevenLabs API calls:
  *
- * Webhook Callbacks:
- *   POST /call-status would receive slot offers from voice agents.
- *   The orchestrator would process them identically to the simulation.
+ *   🔌 INTEGRATION POINT: OUTBOUND CALL
+ *      → Where each agent's voice call is initiated
+ *      → Replace setTimeout simulation with ElevenLabs API call
  *
- * Database Writes:
- *   Confirmed bookings would be persisted via Supabase/Postgres
- *   before emitting the swarm:completed event.
+ *   🔌 INTEGRATION POINT: WEBHOOK HANDLER
+ *      → Where POST /call-status receives tool call results
+ *      → Replace simulated delays with real webhook processing
+ *
+ *   🔌 INTEGRATION POINT: CALL TEARDOWN
+ *      → Where remaining calls are terminated after winner selection
+ *      → Replace with ElevenLabs call hangup API
+ *
+ * See src/backend/elevenlabs.config.ts for:
+ *   - Voice agent persona and system prompt
+ *   - Tool definitions (book_appointment)
+ *   - Provider readiness flags
+ *   - Webhook configuration
+ *
+ * See src/backend/types.ts for:
+ *   - BookAppointmentToolArgs (tool call contract)
+ *   - CallStatusWebhookPayload (webhook shape)
+ *   - OutboundCallRequest (call initiation shape)
+ * ═══════════════════════════════════════════════════════════════════════
  */
 
 import { eventBus } from "./EventBus";
+import { ELEVENLABS_PROVIDER_CONFIG } from "./elevenlabs.config";
 import type {
   ProviderAgent,
   AgentStatus,
@@ -36,15 +53,17 @@ import type {
   SwarmUpdatePayload,
   SwarmCompletedPayload,
   AgentBookedPayload,
+  CallStatusWebhookPayload,
+  OutboundCallRequest,
 } from "./types";
 
 // ─── Provider Configuration ─────────────────────────────────
 const PROVIDER_CONFIG: Omit<ProviderAgent, "status" | "slotTime">[] = [
-  { id: "agent-1", name: "Dentist A", elevenlabsReady: true },
-  { id: "agent-2", name: "Dentist B", elevenlabsReady: false },
-  { id: "agent-3", name: "Dentist C", elevenlabsReady: false },
-  { id: "agent-4", name: "Dentist D", elevenlabsReady: false },
-  { id: "agent-5", name: "Dentist E", elevenlabsReady: false },
+  { id: "agent-1", name: "Dentist A", elevenlabsReady: ELEVENLABS_PROVIDER_CONFIG["agent-1"].elevenlabsReady },
+  { id: "agent-2", name: "Dentist B", elevenlabsReady: ELEVENLABS_PROVIDER_CONFIG["agent-2"].elevenlabsReady },
+  { id: "agent-3", name: "Dentist C", elevenlabsReady: ELEVENLABS_PROVIDER_CONFIG["agent-3"].elevenlabsReady },
+  { id: "agent-4", name: "Dentist D", elevenlabsReady: ELEVENLABS_PROVIDER_CONFIG["agent-4"].elevenlabsReady },
+  { id: "agent-5", name: "Dentist E", elevenlabsReady: ELEVENLABS_PROVIDER_CONFIG["agent-5"].elevenlabsReady },
 ];
 
 const MOCK_SLOTS = [
@@ -92,10 +111,17 @@ export class SwarmOrchestrator {
    * POST /start-swarm
    * Kicks off parallel agent calls and emits real-time updates.
    *
-   * In production:
-   *   - Each agent would initiate an ElevenLabs outbound voice call
-   *   - The voice agent uses tool-calling to POST slot offers to /call-status
-   *   - This method would return the swarmId for the client to subscribe to
+   * ── ElevenLabs Integration ──────────────────────────────────
+   * In production, this method would:
+   *   1. Loop through agents
+   *   2. For agents with elevenlabsReady === true:
+   *      → Build an OutboundCallRequest
+   *      → POST to ElevenLabs Conversational AI API to initiate call
+   *      → The voice agent handles the conversation autonomously
+   *      → Tool calls arrive via POST /call-status webhook
+   *   3. For agents with elevenlabsReady === false:
+   *      → Continue using simulation (or skip)
+   *   4. Return the swarmId for the client to subscribe to
    */
   start(): void {
     this.cleanup();
@@ -116,40 +142,81 @@ export class SwarmOrchestrator {
     };
     eventBus.emit("swarm:start", startPayload);
 
-    // ── Simulate parallel agent calls ──
-    const delays = this.agents.map(() => randomDelay());
-    const slots = this.agents.map(() => randomSlot());
+    // ── Dispatch agents ──────────────────────────────────────
     const minTime = parseTime(MIN_VALID_TIME);
     let completedCount = 0;
 
-    this.agents.forEach((agent, i) => {
-      const baseDelay = delays[i];
-      const slot = slots[i];
+    this.agents.forEach((agent) => {
+      // ┌─────────────────────────────────────────────────────┐
+      // │ 🔌 INTEGRATION POINT: OUTBOUND CALL                │
+      // │                                                     │
+      // │ When elevenlabsReady === true, replace the entire   │
+      // │ simulation block below with:                        │
+      // │                                                     │
+      // │   const callRequest: OutboundCallRequest = {        │
+      // │     agent_id: agent.id,                             │
+      // │     elevenlabs_agent_id:                            │
+      // │       ELEVENLABS_PROVIDER_CONFIG[agent.id]          │
+      // │         .elevenlabsAgentId,                         │
+      // │     provider_name: agent.name,                      │
+      // │     swarm_id: this.swarmId,                         │
+      // │     phone_number:                                   │
+      // │       ELEVENLABS_PROVIDER_CONFIG[agent.id]          │
+      // │         .phoneNumber,                               │
+      // │     prompt_overrides: {                             │
+      // │       min_valid_time: MIN_VALID_TIME,               │
+      // │       patient_name: "John Doe",                     │
+      // │       appointment_type: "dental cleaning",          │
+      // │     },                                              │
+      // │   };                                                │
+      // │                                                     │
+      // │   await elevenlabsAPI.initiateOutboundCall(          │
+      // │     callRequest                                     │
+      // │   );                                                │
+      // │                                                     │
+      // │ The voice agent then handles the call autonomously. │
+      // │ Results arrive via POST /call-status webhook.       │
+      // └─────────────────────────────────────────────────────┘
 
-      /**
-       * Phase 1: Calling (30% through delay)
-       * Production: ElevenLabs call connected, agent greeting sent
-       */
+      const baseDelay = randomDelay();
+      const slot = randomSlot();
+
+      // Phase 1: Calling (30% through delay)
+      // Production: ElevenLabs call connected, agent greeting sent
       this.schedule(baseDelay * 0.3, () => {
         if (this.winnerSelected) return;
         this.updateAgent(agent.id, "calling", null);
         this.emitUpdate(agent.id, "calling", null, `📞 ${agent.name}: Dialing provider...`);
       });
 
-      /**
-       * Phase 2: Negotiating (65% through delay)
-       * Production: Voice agent received slot offer via tool-calling
-       */
+      // Phase 2: Negotiating (65% through delay)
+      // Production: Voice agent received slot offer via conversation
       this.schedule(baseDelay * 0.65, () => {
         if (this.winnerSelected) return;
         this.updateAgent(agent.id, "negotiating", slot);
         this.emitUpdate(agent.id, "negotiating", slot, `🤝 ${agent.name}: Negotiating — offered ${slot}`);
       });
 
-      /**
-       * Phase 3: Result (full delay)
-       * Production: POST /call-status webhook received from ElevenLabs tool call
-       */
+      // Phase 3: Result (full delay)
+      // ┌─────────────────────────────────────────────────────┐
+      // │ 🔌 INTEGRATION POINT: WEBHOOK HANDLER              │
+      // │                                                     │
+      // │ In production, this phase is replaced by the        │
+      // │ POST /call-status webhook handler. When ElevenLabs  │
+      // │ voice agent invokes the book_appointment tool:      │
+      // │                                                     │
+      // │   1. ElevenLabs POSTs CallStatusWebhookPayload to   │
+      // │      /call-status                                   │
+      // │   2. Webhook handler calls                          │
+      // │      processWebhookResult() with the payload        │
+      // │   3. Booking logic runs identically to below        │
+      // │                                                     │
+      // │ The webhook payload shape is defined in types.ts:   │
+      // │   CallStatusWebhookPayload                          │
+      // │                                                     │
+      // │ The tool call shape is defined in types.ts:         │
+      // │   ElevenLabsToolCall / BookAppointmentToolArgs      │
+      // └─────────────────────────────────────────────────────┘
       this.schedule(baseDelay, () => {
         completedCount++;
         const isValid = parseTime(slot) >= minTime;
@@ -169,6 +236,71 @@ export class SwarmOrchestrator {
         this.schedule(300, () => this.evaluateAndComplete(completedCount));
       });
     });
+  }
+
+  /**
+   * Process a webhook result from ElevenLabs (placeholder).
+   *
+   * ┌─────────────────────────────────────────────────────────┐
+   * │ 🔌 INTEGRATION POINT: WEBHOOK PROCESSING               │
+   * │                                                         │
+   * │ In production, the Express/Hono route handler for       │
+   * │ POST /call-status would call this method with the       │
+   * │ parsed webhook payload.                                 │
+   * │                                                         │
+   * │ This method is NOT called during simulation — it exists │
+   * │ to document the exact processing flow for real webhooks.│
+   * └─────────────────────────────────────────────────────────┘
+   */
+  processWebhookResult(_payload: CallStatusWebhookPayload): void {
+    // In production, this would:
+    //
+    // 1. Validate the webhook signature
+    //    → Verify x-elevenlabs-signature header
+    //
+    // 2. Extract the tool call from payload.tool_calls
+    //    → const toolCall = payload.tool_calls
+    //        .find(tc => tc.tool_name === "book_appointment");
+    //
+    // 3. Parse the booking details
+    //    → const { provider_name, slot_time, reasoning } = toolCall.parameters;
+    //
+    // 4. Validate the slot meets constraints
+    //    → if (parseTime(slot_time) < parseTime(MIN_VALID_TIME)) reject;
+    //
+    // 5. Update agent state and emit events
+    //    → this.updateAgent(payload.agent_id, "booked", slot_time);
+    //    → this.emitUpdate(...);
+    //
+    // 6. Check if all agents have reported and evaluate winner
+    //    → this.evaluateAndComplete(completedCount);
+    //
+    // 7. If call_status === "failed" or "no_answer":
+    //    → this.updateAgent(payload.agent_id, "rejected", null);
+    //    → Log the failure reason
+  }
+
+  /**
+   * Build an outbound call request for a provider (placeholder).
+   *
+   * In production, this would be called for each agent with
+   * elevenlabsReady === true during start().
+   */
+  private buildOutboundCallRequest(agent: ProviderAgent): OutboundCallRequest {
+    const config = ELEVENLABS_PROVIDER_CONFIG[agent.id as keyof typeof ELEVENLABS_PROVIDER_CONFIG];
+
+    return {
+      agent_id: agent.id,
+      elevenlabs_agent_id: config.elevenlabsAgentId ?? "",
+      provider_name: agent.name,
+      swarm_id: this.swarmId!,
+      phone_number: config.phoneNumber,
+      prompt_overrides: {
+        min_valid_time: MIN_VALID_TIME,
+        patient_name: "John Doe", // Would come from user input
+        appointment_type: "dental cleaning", // Would come from user input
+      },
+    };
   }
 
   /**
@@ -198,6 +330,23 @@ export class SwarmOrchestrator {
         parseTime(a.slotTime!) <= parseTime(b.slotTime!) ? a : b
       );
 
+      // ┌─────────────────────────────────────────────────────┐
+      // │ 🔌 INTEGRATION POINT: CALL TEARDOWN                │
+      // │                                                     │
+      // │ In production, after selecting a winner:            │
+      // │                                                     │
+      // │   for (const agent of nonWinnerAgents) {            │
+      // │     if (agent.elevenlabsReady) {                    │
+      // │       await elevenlabsAPI.endConversation(           │
+      // │         agent.conversationId                        │
+      // │       );                                            │
+      // │     }                                               │
+      // │   }                                                 │
+      // │                                                     │
+      // │ This ensures active voice calls are hung up         │
+      // │ immediately after the winner is confirmed.          │
+      // └─────────────────────────────────────────────────────┘
+
       // Cancel non-winners
       this.agents = this.agents.map((a) => {
         if (a.id === winner.id) return { ...a, status: "booked" as AgentStatus };
@@ -208,7 +357,7 @@ export class SwarmOrchestrator {
         return a;
       });
 
-      // Emit agent:booked (would go to webhook in production)
+      // Emit agent:booked (would go to database write in production)
       const bookedPayload: AgentBookedPayload = {
         swarmId: this.swarmId!,
         agentId: winner.id,

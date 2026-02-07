@@ -1,6 +1,6 @@
 /**
  * Shared types between backend simulation and frontend.
- * 
+ *
  * In production, these would live in a shared package or
  * be generated from the backend's OpenAPI / GraphQL schema.
  */
@@ -22,6 +22,8 @@ export interface ProviderAgent {
   /** Whether this provider is wired for ElevenLabs voice agent */
   elevenlabsReady: boolean;
 }
+
+// ─── Event Payloads ────────────────────────────────────────
 
 export interface SwarmStartPayload {
   swarmId: string;

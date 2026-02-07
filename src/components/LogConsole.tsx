@@ -20,16 +20,19 @@ export function LogConsole({ logs }: LogConsoleProps) {
           <div className="w-2.5 h-2.5 rounded-full bg-warning/60" />
           <div className="w-2.5 h-2.5 rounded-full bg-success/60" />
         </div>
-        <span className="text-xs font-mono text-muted-foreground ml-2">agent_logs</span>
+        <span className="text-xs font-mono text-muted-foreground ml-2">swarm_events</span>
+        <span className="text-[10px] font-mono text-muted-foreground/50 ml-auto">
+          {logs.length > 0 ? `${logs.length} events` : ""}
+        </span>
       </div>
-      <div className="p-4 h-48 overflow-y-auto font-mono text-xs space-y-1">
+      <div className="p-4 h-52 overflow-y-auto font-mono text-xs space-y-1">
         {logs.length === 0 && (
-          <span className="text-muted-foreground">Waiting for swarm dispatch...</span>
+          <span className="text-muted-foreground">Awaiting swarm dispatch…</span>
         )}
         <AnimatePresence>
           {logs.map((log, i) => (
             <motion.div
-              key={i}
+              key={`${i}-${log.slice(0, 20)}`}
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
               className="text-secondary-foreground"

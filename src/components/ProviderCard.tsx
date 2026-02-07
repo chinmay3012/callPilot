@@ -1,8 +1,9 @@
 import { motion } from "framer-motion";
-import { Phone, PhoneCall, Handshake, CheckCircle2, XCircle, Search } from "lucide-react";
-import type { Provider, ProviderStatus } from "@/hooks/useSwarm";
+import { Phone, PhoneCall, Handshake, CheckCircle2, XCircle, Search, Ban, Radio } from "lucide-react";
+import type { ProviderAgent, AgentStatus } from "@/backend/types";
+import { Badge } from "@/components/ui/badge";
 
-const statusConfig: Record<ProviderStatus, { label: string; icon: React.ReactNode; className: string }> = {
+const statusConfig: Record<AgentStatus, { label: string; icon: React.ReactNode; className: string }> = {
   idle: {
     label: "Standby",
     icon: <Phone className="w-4 h-4" />,
@@ -33,10 +34,15 @@ const statusConfig: Record<ProviderStatus, { label: string; icon: React.ReactNod
     icon: <XCircle className="w-4 h-4" />,
     className: "bg-destructive/20 text-destructive",
   },
+  cancelled: {
+    label: "Cancelled",
+    icon: <Ban className="w-4 h-4" />,
+    className: "bg-muted text-muted-foreground",
+  },
 };
 
 interface ProviderCardProps {
-  provider: Provider;
+  provider: ProviderAgent;
   isWinner: boolean;
 }
 
@@ -51,7 +57,7 @@ export function ProviderCard({ provider, isWinner }: ProviderCardProps) {
       className={`relative overflow-hidden rounded-lg border p-5 transition-all duration-500 ${
         isWinner
           ? "border-success/50 glow-success bg-success/5"
-          : provider.status === "rejected"
+          : provider.status === "rejected" || provider.status === "cancelled"
           ? "border-border/30 opacity-50 bg-card"
           : "border-border bg-card"
       }`}
@@ -64,7 +70,15 @@ export function ProviderCard({ provider, isWinner }: ProviderCardProps) {
       )}
 
       <div className="flex items-start justify-between mb-3">
-        <h3 className="font-semibold text-foreground">{provider.name}</h3>
+        <div className="flex items-center gap-2">
+          <h3 className="font-semibold text-foreground">{provider.name}</h3>
+          {provider.elevenlabsReady && (
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-primary/40 text-primary gap-1">
+              <Radio className="w-3 h-3" />
+              Live Agent
+            </Badge>
+          )}
+        </div>
         <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${config.className}`}>
           {config.icon}
           {config.label}

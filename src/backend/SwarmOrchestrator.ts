@@ -202,7 +202,6 @@ export class SwarmOrchestrator {
       this.agents = this.agents.map((a) => {
         if (a.id === winner.id) return { ...a, status: "booked" as AgentStatus };
         if (a.status === "booked") {
-          // Emit cancel for each non-winning booked agent
           this.emitUpdate(a.id, "cancelled", a.slotTime, `⏹️ ${a.name}: Cancelled (not earliest slot)`);
           return { ...a, status: "cancelled" as AgentStatus };
         }
@@ -228,7 +227,6 @@ export class SwarmOrchestrator {
       };
       eventBus.emit("swarm:completed", completedPayload);
     } else {
-      // No valid slots — emit completed with null winner
       const completedPayload: SwarmCompletedPayload = {
         swarmId: this.swarmId!,
         winnerId: null,

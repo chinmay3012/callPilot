@@ -213,7 +213,24 @@ async def support_agent_webhook(request: Request) -> Dict[str, Any]:
         if expert_routing.get("expert_prompt_hint"):
             result["expert_prompt_hint"] = expert_routing["expert_prompt_hint"]
 
-    return {"status": "success", "tool_result": result}
+    # Build a single speakable string so the agent reliably has text to respond with.
+    # Some platforms (e.g. ElevenLabs) use a top-level "output" or "result" as the tool result text.
+    output_text = result.get("message") or result.get("confirmation_message") or ""
+    if tool_name == "find_provider" and result.get("results"):
+        names = [r.get("name") for r in result["results"][:5] if r.get("name")]
+        if names:
+            output_text = f"Found {result.get('count', len(names))} options. {', '.join(names)}. Which one would you like, or should I check availability?"
+        else:
+            output_text = result.get("message") or "No providers found for that. Try another service type."
+    elif result.get("error"):
+        output_text = result.get("message") or str(result.get("error", "Something went wrong."))
+
+    return {
+        "status": "success",
+        "tool_result": result,
+        "output": output_text,
+        "result": output_text,
+    }
 
 
 @router.post("/waitlist-check")

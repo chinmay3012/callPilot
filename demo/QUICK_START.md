@@ -61,6 +61,7 @@ See **demo/example_prompts.txt** for copy-paste prompts for all 10 tasks.
 
 ## Troubleshooting
 
+- **502 Bad Gateway after deployment:** The proxy (e.g. Railway, Render, Nginx) can’t reach your backend. (1) Ensure the backend listens on the port the platform expects: set **`PORT`** in the host’s env (Railway/Render/Fly set this automatically; the app uses it). (2) Don’t use `reload=True` in production; the app now uses `RELOAD=false` by default. (3) Check the host’s logs: the backend must start without errors and bind to `0.0.0.0:PORT`. (4) If you deploy only the frontend (e.g. Vercel), the backend must be deployed separately and the webhook URL must point to that backend.
 - **Tool failed: find_provider / 404 / ngrok HTML response:** Your ngrok tunnel is **offline**. Start it with `ngrok http 8000`, copy the new HTTPS URL, and update **every** tool’s webhook URL in ElevenLabs to `https://YOUR_NGROK_HOST/support-agent/webhook`. If you restart ngrok, the URL changes—update ElevenLabs again.
 - **404 on webhook:** Restart the backend and confirm GET **/support-agent** returns 200. Webhook path must be exactly **/support-agent/webhook** (no trailing slash).
 - **No providers found:** Ensure `data/support_services.json` and `data/mock_providers.json` exist and include the service type (doctor, dentist, vet, salon, etc.). Fitness and home_cleaning were added for the 10-task demo.

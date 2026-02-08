@@ -284,7 +284,10 @@ async def get_support_overrides(session_id: str):
 
 
 if __name__ == "__main__":
+    import os
     import uvicorn
     from .config import API_HOST, API_PORT
 
-    uvicorn.run("backend.main:app", host=API_HOST, port=API_PORT, reload=True)
+    # Reload only for local dev; disable in production to avoid 502/timeouts
+    use_reload = os.getenv("RELOAD", "false").lower() == "true"
+    uvicorn.run("backend.main:app", host=API_HOST, port=API_PORT, reload=use_reload)

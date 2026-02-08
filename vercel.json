@@ -1,0 +1,9 @@
+{
+  "env": { "UV_LINK_MODE": "copy" },
+  "crons": [
+    {
+      "path": "/api/keep-awake",
+      "schedule": "*/14 * * * *"
+    }
+  ]
+}

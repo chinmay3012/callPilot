@@ -7,9 +7,12 @@ URL: POST /support-agent/webhook
 Configure in ElevenLabs: Support Agent → Tools → Webhook URL
   https://your-domain.com/support-agent/webhook
 """
+import logging
 from typing import Any, Dict
 
 from fastapi import APIRouter, Request, HTTPException
+
+logger = logging.getLogger(__name__)
 
 from .support_agent_config import SUPPORT_AGENT_PERSONA, SUPPORT_AGENT_TOOLS
 from .support_agent_tools import run_support_tool, infer_tool_from_input
@@ -44,6 +47,21 @@ async def support_agent_webhook(request: Request) -> Dict[str, Any]:
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid JSON")
 
+    try:
+        return _handle_webhook_body(request, data)
+    except Exception as e:
+        logger.exception("Support webhook error: %s", e)
+        err_msg = "Something went wrong on our side. Please try again in a moment."
+        return {
+            "status": "error",
+            "tool_result": {"error": str(e), "message": err_msg},
+            "output": err_msg,
+            "result": err_msg,
+        }
+
+
+def _handle_webhook_body(request: Request, data: Dict[str, Any]) -> Dict[str, Any]:
+    """Parse request, run tool, and return JSON. Raises on invalid request (400)."""
     # Tool name: body first, then headers, then infer from payload (ElevenLabs often sends only tool params)
     tool_name = (
         data.get("tool_name")
@@ -142,7 +160,12 @@ async def support_agent_webhook(request: Request) -> Dict[str, Any]:
             }
 
     if not tool_name:
-        raise HTTPException(status_code=400, detail="Missing tool_name, name, or input")
+        return {
+            "status": "error",
+            "tool_result": {"error": "Missing tool_name, name, or input", "message": "I couldn't understand that request. Please try again."},
+            "output": "I couldn't understand that request. Please try again.",
+            "result": "I couldn't understand that request. Please try again.",
+        }
 
     # Normalize: ElevenLabs tool may be named "book_appointment" — backend uses "schedule_appointment"
     if tool_name.strip().lower() == "book_appointment":

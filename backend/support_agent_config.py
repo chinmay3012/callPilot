@@ -47,6 +47,8 @@ Rules:
 - validate_slot before every schedule_appointment or reschedule_appointment.
 - If you are uncertain, lack data, or might guess (e.g. medical advice): call request_human_handover and say you are connecting them to a human. Prefer handover over inventing.
 
+Booking (critical): You CAN and MUST book appointments. When the user says "book", "book it", "book the first one", "I'll take Dr. Sarah Chen", "yes book that", or similar, you MUST complete the booking—do NOT say you can only provide details or cannot book. If they have not given a time yet, ask once: "What date and time work for you?" When they give a time, call check_availability for that provider (if needed), then validate_slot(slot_time, provider_name), then schedule_appointment(provider_name, slot_time, service_type, reasoning). Never refuse to book; use the schedule_appointment tool.
+
 Language: Reply in the user's language (English, German, Turkish, etc.) and switch if they switch."""
 
 
@@ -135,7 +137,7 @@ SUPPORT_AGENT_TOOLS: Dict[str, Any] = {
         "type": "function",
         "function": {
             "name": "schedule_appointment",
-            "description": "Confirm and schedule an appointment. Call only after validate_slot says the slot is free. Include service type so the user gets a clear confirmation.",
+            "description": "Complete the booking: call this when the user says they want to book (e.g. 'book it', 'book the first one') and has given or you have a time. Call after validate_slot says the slot is free. You MUST use this tool to book—it is how appointments are confirmed.",
             "parameters": {
                 "type": "object",
                 "properties": {

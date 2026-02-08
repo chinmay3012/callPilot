@@ -61,6 +61,7 @@ See **demo/example_prompts.txt** for copy-paste prompts for all 10 tasks.
 
 ## Troubleshooting
 
+- **Tool failed: find_provider / 404 / ngrok HTML response:** Your ngrok tunnel is **offline**. Start it with `ngrok http 8000`, copy the new HTTPS URL, and update **every** tool’s webhook URL in ElevenLabs to `https://YOUR_NGROK_HOST/support-agent/webhook`. If you restart ngrok, the URL changes—update ElevenLabs again.
 - **404 on webhook:** Restart the backend and confirm GET **/support-agent** returns 200. Webhook path must be exactly **/support-agent/webhook** (no trailing slash).
 - **No providers found:** Ensure `data/support_services.json` and `data/mock_providers.json` exist and include the service type (doctor, dentist, vet, salon, etc.). Fitness and home_cleaning were added for the 10-task demo.
 - **DEMO_MODE:** Default is `true`; calendar is treated as free so bookings succeed without a real calendar. Set `DEMO_MODE=false` and configure calendar if you want real free-busy checks.

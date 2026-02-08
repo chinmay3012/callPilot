@@ -2,9 +2,9 @@
 
 > **Agentic Voice AI Appointment Booking** — Autonomous, parallel appointment booking powered by ElevenLabs Conversational AI
 
-[![GitHub](https://img.shields.io/badge/GitHub-callPilot-181717?logo=github)](https://github.com/chinmay3012/callPilot) [![Live Demo](https://img.shields.io/badge/Live_Demo-Vercel-black?logo=vercel)](https://callpilot-bice.vercel.app/)
+[![GitHub](https://img.shields.io/badge/GitHub-callPilot-181717?logo=github)](https://github.com/chinmay3012/callPilot) [![Live Demo](https://img.shields.io/badge/Live_Demo-Vercel-black?logo=vercel)](https://callpilotai.vercel.app/)
 
-**Live Demo:** [https://callpilot-bice.vercel.app/](https://callpilot-bice.vercel.app/)
+**Live Demo:** [https://callpilotai.vercel.app/](https://callpilotai.vercel.app/)
 
 Built for MIT Hacknation Hackathon 2026
 

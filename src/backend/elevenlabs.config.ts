@@ -53,17 +53,20 @@ export const VOICE_AGENT_PERSONA = {
 
 Your objective:
 1. Greet the receptionist and state you are calling to schedule an appointment.
-2. Ask what appointment slots are available today.
-3. If a slot is offered before 9:30 AM, politely decline and ask for a later option.
-4. Once an acceptable slot (9:30 AM or later) is offered, confirm the booking.
-5. Call the book_appointment tool with the provider name, slot time, and your reasoning.
-6. Thank the receptionist and end the call.
+2. Use the query_calendar tool to check the patient's free slots so you only request times that avoid double booking.
+3. Ask what appointment slots are available. Use lookup_provider if you need details about this provider (rating, distance).
+4. When the receptionist offers a slot, use validate_slot to confirm it does not conflict with the patient's calendar and meets preferences.
+5. If a slot is offered before 9:30 AM, politely decline and ask for a later option. Adapt your negotiation: if they have limited slots, ask for the next best time.
+6. If information is missing (e.g., exact time, date, or provider name), ask clarifying questions before confirming.
+7. Once an acceptable slot is validated, call the book_appointment tool with the provider name, slot time, and your reasoning.
+8. Thank the receptionist and end the call.
 
 Constraints:
-- Never accept a slot before 9:30 AM.
+- Never accept a slot before 9:30 AM. Use validate_slot before committing.
 - Do not discuss pricing, insurance, or anything beyond scheduling.
-- If no valid slot is available, politely end the call without booking.
-- Keep the call concise — under 60 seconds when possible.`,
+- If no valid slot is available or calendar conflicts, politely end the call without booking.
+- Keep the call concise — under 60 seconds when possible.
+- When information is missing, ask one clear clarifying question at a time; then adapt your negotiation strategy based on the answer.`,
 } as const;
 
 // ─── Tool Definitions ───────────────────────────────────────
@@ -74,11 +77,66 @@ Constraints:
 // The voice agent invokes these tools during the call. ElevenLabs
 // then POSTs the tool call to the configured webhook URL.
 
+// Agentic functions — tool calling as the brain (calendar, provider lookup, distance, slot validation)
 export const TOOL_DEFINITIONS = {
+  query_calendar: {
+    name: "query_calendar",
+    description:
+      "Check the patient's calendar for available time windows. Use before requesting slots from the receptionist to avoid double booking. Returns free slots for today.",
+    parameters: {
+      type: "object" as const,
+      properties: {
+        for_date: {
+          type: "string" as const,
+          description: "Date to check: 'today', 'tomorrow', or YYYY-MM-DD",
+        },
+      },
+      required: [],
+    },
+  },
+  lookup_provider: {
+    name: "lookup_provider",
+    description:
+      "Get provider details: name, Google rating, distance from patient. Use when you need to compare or confirm provider info.",
+    parameters: {
+      type: "object" as const,
+      properties: {
+        provider_name: { type: "string" as const, description: "Name of the provider (e.g., 'Dr. Sarah Chen')" },
+        provider_id: { type: "string" as const, description: "Optional provider ID if known" },
+      },
+      required: ["provider_name"],
+    },
+  },
+  calculate_distance: {
+    name: "calculate_distance",
+    description:
+      "Get travel distance and estimated travel time from patient to provider. Use to inform scheduling preference (closer = better).",
+    parameters: {
+      type: "object" as const,
+      properties: {
+        provider_name: { type: "string" as const, description: "Name of the provider" },
+        provider_address: { type: "string" as const, description: "Provider address if known" },
+      },
+      required: ["provider_name"],
+    },
+  },
+  validate_slot: {
+    name: "validate_slot",
+    description:
+      "Validate a proposed appointment slot: checks patient calendar for conflicts (double booking) and that the time is not before 9:30 AM. Call before confirming with the receptionist.",
+    parameters: {
+      type: "object" as const,
+      properties: {
+        slot_time: { type: "string" as const, description: "Proposed time (e.g., '10:30 AM')" },
+        provider_name: { type: "string" as const, description: "Provider name for logging" },
+      },
+      required: ["slot_time", "provider_name"],
+    },
+  },
   book_appointment: {
     name: "book_appointment",
     description:
-      "Confirm and book an appointment slot. Call this tool once the receptionist confirms an available slot that meets the scheduling criteria (9:30 AM or later).",
+      "Confirm and book an appointment slot. Call only after validate_slot has confirmed the slot is free and valid. Call once the receptionist confirms an available slot (9:30 AM or later).",
     parameters: {
       type: "object" as const,
       properties: {

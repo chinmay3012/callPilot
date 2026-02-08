@@ -6,10 +6,11 @@ interface LogConsoleProps {
 }
 
 export function LogConsole({ logs }: LogConsoleProps) {
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    const el = scrollContainerRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
   }, [logs]);
 
   return (
@@ -25,7 +26,7 @@ export function LogConsole({ logs }: LogConsoleProps) {
           {logs.length > 0 ? `${logs.length} events` : ""}
         </span>
       </div>
-      <div className="p-4 h-52 overflow-y-auto font-mono text-xs space-y-1">
+      <div ref={scrollContainerRef} className="p-4 h-52 overflow-y-auto font-mono text-xs space-y-1">
         {logs.length === 0 && (
           <span className="text-muted-foreground">Awaiting swarm dispatch…</span>
         )}
@@ -41,7 +42,6 @@ export function LogConsole({ logs }: LogConsoleProps) {
             </motion.div>
           ))}
         </AnimatePresence>
-        <div ref={bottomRef} />
       </div>
     </div>
   );

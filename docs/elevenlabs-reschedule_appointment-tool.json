@@ -1,0 +1,65 @@
+{
+  "type": "webhook",
+  "name": "reschedule_appointment",
+  "description": "Reschedule an existing appointment with a provider to a new preferred time after checking availability and avoiding conflicts.",
+  "api_schema": {
+    "url": "https://nonconsecutively-semiexpository-lorie.ngrok-free.dev/support-agent/webhook",
+    "method": "POST",
+    "path_params_schema": [],
+    "query_params_schema": [],
+    "request_body_schema": {
+      "id": "body",
+      "type": "object",
+      "description": "Request to reschedule an existing appointment.",
+      "required": true,
+      "properties": [
+        {
+          "id": "provider_name",
+          "type": "string",
+          "value_type": "llm_prompt",
+          "description": "Name of the provider whose appointment should be rescheduled.",
+          "dynamic_variable": "",
+          "constant_value": "",
+          "required": true,
+          "enum": null
+        },
+        {
+          "id": "new_slot_time",
+          "type": "string",
+          "value_type": "llm_prompt",
+          "description": "The new desired appointment date and time in a clear human-readable format (e.g. 'Tomorrow at 2:00 PM').",
+          "dynamic_variable": "",
+          "constant_value": "",
+          "required": true,
+          "enum": null
+        },
+        {
+          "id": "reasoning",
+          "type": "string",
+          "value_type": "llm_prompt",
+          "description": "Brief explanation of why the appointment should be rescheduled to this new time.",
+          "dynamic_variable": "",
+          "constant_value": "",
+          "required": false,
+          "enum": null
+        }
+      ],
+      "dynamic_variable": "",
+      "constant_value": "",
+      "value_type": "llm_prompt"
+    },
+    "request_headers": [],
+    "auth_connection": null
+  },
+  "response_timeout_secs": 20,
+  "dynamic_variables": {
+    "dynamic_variable_placeholders": {}
+  },
+  "assignments": [],
+  "disable_interruptions": false,
+  "force_pre_tool_speech": "auto",
+  "tool_call_sound": null,
+  "tool_call_sound_behavior": "auto",
+  "execution_mode": "immediate",
+  "tool_error_handling_mode": "auto"
+}

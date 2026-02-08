@@ -1,0 +1,254 @@
+{
+  "description": "Simulated receptionist responses and offered slots for full workflow demo. Used by swarm and Support Agent availability simulation.",
+  "version": "1.0",
+  "defaultSlots": [
+    "9:00 AM",
+    "9:30 AM",
+    "10:00 AM",
+    "10:30 AM",
+    "11:00 AM",
+    "11:30 AM",
+    "2:00 PM",
+    "2:30 PM",
+    "3:00 PM",
+    "3:30 PM",
+    "4:00 PM"
+  ],
+  "receptionistPhrases": {
+    "greeting": [
+      "Thank you for calling, how can I help you?",
+      "Hello, this is the front desk. What can I do for you?",
+      "Good morning/afternoon, you've reached the office."
+    ],
+    "offeringSlots": [
+      "We have availability at {slot}.",
+      "The next opening we have is {slot}.",
+      "I can offer you {slot} if that works."
+    ],
+    "confirming": [
+      "I have you down for {slot}. See you then.",
+      "Your appointment is confirmed for {slot}.",
+      "You're all set for {slot}. We'll send a reminder."
+    ],
+    "rejectEarly": [
+      "We don't have anything before 9:30 AM.",
+      "Our first slot is 9:30 AM. Would that work?",
+      "I'm sorry, we're not open that early."
+    ]
+  },
+  "byProviderId": {
+    "agent-1": {
+      "slots": [
+        "9:30 AM",
+        "10:30 AM",
+        "11:00 AM",
+        "2:00 PM",
+        "3:30 PM"
+      ],
+      "note": "Dr. Sarah Chen \u2014 limited same-day"
+    },
+    "agent-2": {
+      "slots": [
+        "9:00 AM",
+        "10:00 AM",
+        "11:30 AM",
+        "2:30 PM",
+        "4:00 PM"
+      ],
+      "note": "Smile Dental \u2014 flexible"
+    },
+    "agent-3": {
+      "slots": [
+        "9:30 AM",
+        "11:00 AM",
+        "3:00 PM"
+      ],
+      "note": "Bright Smiles \u2014 popular, fewer slots"
+    },
+    "agent-4": {
+      "slots": [
+        "8:30 AM",
+        "9:30 AM",
+        "10:00 AM",
+        "10:30 AM",
+        "2:00 PM",
+        "3:00 PM"
+      ],
+      "note": "Metro Dental Group"
+    },
+    "agent-5": {
+      "slots": [
+        "9:00 AM",
+        "11:00 AM",
+        "2:00 PM",
+        "4:30 PM"
+      ],
+      "note": "Downtown Dental Care"
+    },
+    "doc-1": {
+      "slots": [
+        "9:00 AM",
+        "10:30 AM",
+        "2:00 PM",
+        "3:30 PM"
+      ],
+      "note": "Dr. James Park"
+    },
+    "doc-2": {
+      "slots": [
+        "9:30 AM",
+        "11:00 AM",
+        "2:30 PM",
+        "4:00 PM"
+      ],
+      "note": "Westside Medical"
+    },
+    "doc-3": {
+      "slots": [
+        "8:30 AM",
+        "10:00 AM",
+        "11:30 AM",
+        "3:00 PM"
+      ],
+      "note": "Dr. Amy Foster"
+    },
+    "vet-1": {
+      "slots": [
+        "9:00 AM",
+        "11:00 AM",
+        "2:00 PM",
+        "4:00 PM"
+      ],
+      "note": "Happy Paws"
+    },
+    "vet-2": {
+      "slots": [
+        "9:30 AM",
+        "10:30 AM",
+        "3:00 PM"
+      ],
+      "note": "City Vet"
+    },
+    "plumb-1": {
+      "slots": [
+        "8:00 AM",
+        "10:00 AM",
+        "1:00 PM",
+        "3:00 PM"
+      ],
+      "note": "QuickFlow"
+    },
+    "plumb-2": {
+      "slots": [
+        "9:00 AM",
+        "11:00 AM",
+        "2:00 PM"
+      ],
+      "note": "Metro Plumbing"
+    },
+    "salon-1": {
+      "slots": [
+        "9:00 AM",
+        "10:30 AM",
+        "2:00 PM",
+        "3:30 PM",
+        "4:30 PM"
+      ],
+      "note": "Luxe Hair"
+    },
+    "salon-2": {
+      "slots": [
+        "9:30 AM",
+        "11:00 AM",
+        "1:00 PM",
+        "3:00 PM"
+      ],
+      "note": "Downtown Cuts"
+    },
+    "auto-1": {
+      "slots": [
+        "8:00 AM",
+        "10:00 AM",
+        "2:00 PM"
+      ],
+      "note": "Pro Auto"
+    },
+    "auto-2": {
+      "slots": [
+        "9:00 AM",
+        "11:00 AM",
+        "3:00 PM"
+      ],
+      "note": "Neighborhood Garage"
+    },
+    "ther-1": {
+      "slots": [
+        "10:00 AM",
+        "2:00 PM",
+        "4:00 PM"
+      ],
+      "note": "Dr. Lisa Chen"
+    },
+    "ther-2": {
+      "slots": [
+        "9:00 AM",
+        "11:30 AM",
+        "3:30 PM"
+      ],
+      "note": "Mindful Counseling"
+    },
+    "fit-1": {
+      "slots": [
+        "6:00 AM",
+        "7:30 AM",
+        "9:00 AM",
+        "5:00 PM",
+        "6:30 PM"
+      ],
+      "note": "Peak Fitness"
+    },
+    "fit-2": {
+      "slots": [
+        "7:00 AM",
+        "10:00 AM",
+        "4:00 PM",
+        "5:30 PM"
+      ],
+      "note": "CoreFit"
+    },
+    "fit-3": {
+      "slots": [
+        "8:00 AM",
+        "9:30 AM",
+        "12:00 PM",
+        "5:00 PM"
+      ],
+      "note": "Urban Yoga"
+    },
+    "clean-1": {
+      "slots": [
+        "9:00 AM",
+        "11:00 AM",
+        "2:00 PM"
+      ],
+      "note": "Sparkle Clean"
+    },
+    "clean-2": {
+      "slots": [
+        "8:00 AM",
+        "10:00 AM",
+        "1:00 PM",
+        "3:00 PM"
+      ],
+      "note": "Fresh Home"
+    },
+    "clean-3": {
+      "slots": [
+        "9:30 AM",
+        "12:00 PM",
+        "2:30 PM"
+      ],
+      "note": "MaidPro"
+    }
+  }
+}

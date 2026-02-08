@@ -1,0 +1,92 @@
+{
+  "type": "webhook",
+  "name": "schedule_appointment",
+  "description": "Finalize and book an appointment with a selected provider. Call only after the user has given a preferred date/time — use validate_slot first if needed. Requires provider_name, service_type, slot_time, and reasoning.",
+  "disable_interruptions": false,
+  "force_pre_tool_speech": "auto",
+  "tool_call_sound": null,
+  "tool_call_sound_behavior": "auto",
+  "tool_error_handling_mode": "auto",
+  "execution_mode": "immediate",
+  "api_schema": {
+    "url": "https://nonconsecutively-semiexpository-lorie.ngrok-free.dev/support-agent/webhook",
+    "method": "POST",
+    "path_params_schema": [],
+    "query_params_schema": [],
+    "request_headers": [],
+    "auth_connection": null,
+    "request_body_schema": {
+      "id": "body",
+      "type": "object",
+      "description": "Envelope for scheduling an appointment via the support agent.",
+      "required": true,
+      "properties": [
+        {
+          "id": "tool_name",
+          "type": "string",
+          "value_type": "constant",
+          "constant_value": "schedule_appointment",
+          "dynamic_variable": "",
+          "description": "Name of the tool being invoked.",
+          "required": true,
+          "enum": null
+        },
+        {
+          "id": "input",
+          "type": "object",
+          "value_type": "llm_prompt",
+          "description": "Input parameters required to schedule the appointment. Must include slot_time (e.g. 10:30 AM or Tuesday at 2:00 PM) — ask the user if not yet provided.",
+          "required": true,
+          "properties": [
+            {
+              "id": "provider_name",
+              "type": "string",
+              "value_type": "llm_prompt",
+              "dynamic_variable": "",
+              "constant_value": "",
+              "description": "Name of the provider chosen by the user for booking (e.g. Bright Smiles Co., Dr. Sarah Chen).",
+              "required": true,
+              "enum": null
+            },
+            {
+              "id": "slot_time",
+              "type": "string",
+              "value_type": "llm_prompt",
+              "dynamic_variable": "",
+              "constant_value": "",
+              "description": "The confirmed appointment time from the user (e.g. 10:30 AM, Tuesday at 2:00 PM, tomorrow at 9:00 AM). Always ask the user for their preferred time before calling this tool if you do not have it.",
+              "required": true,
+              "enum": null
+            },
+            {
+              "id": "service_type",
+              "type": "string",
+              "value_type": "llm_prompt",
+              "dynamic_variable": "",
+              "constant_value": "",
+              "description": "Type of service being booked (e.g. dentist, doctor, vet).",
+              "required": true,
+              "enum": null
+            },
+            {
+              "id": "reasoning",
+              "type": "string",
+              "value_type": "llm_prompt",
+              "dynamic_variable": "",
+              "constant_value": "",
+              "description": "Brief explanation of why this provider and time were chosen.",
+              "required": false,
+              "enum": null
+            }
+          ]
+        }
+      ],
+      "value_type": "llm_prompt"
+    }
+  },
+  "response_timeout_secs": 20,
+  "dynamic_variables": {
+    "dynamic_variable_placeholders": {}
+  },
+  "assignments": []
+}

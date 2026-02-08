@@ -1,7 +1,8 @@
 import { motion } from "framer-motion";
-import { Phone, PhoneCall, Handshake, CheckCircle2, XCircle, Search, Ban, Radio } from "lucide-react";
+import { Phone, PhoneCall, Handshake, CheckCircle2, XCircle, Search, Ban, Radio, Star, MapPin } from "lucide-react";
 import type { ProviderAgent, AgentStatus } from "@/types/swarm";
 import { Badge } from "@/components/ui/badge";
+import { PROVIDER_METADATA } from "@/data/providerMetadata";
 
 const statusConfig: Record<AgentStatus, { label: string; icon: React.ReactNode; className: string }> = {
   idle: {
@@ -44,10 +45,13 @@ const statusConfig: Record<AgentStatus, { label: string; icon: React.ReactNode; 
 interface ProviderCardProps {
   provider: ProviderAgent;
   isWinner: boolean;
+  /** Optional per-service metadata (rating, distance); falls back to PROVIDER_METADATA for dentist */
+  metadata?: { name: string; rating: number; distanceMiles: number } | null;
 }
 
-export function ProviderCard({ provider, isWinner }: ProviderCardProps) {
+export function ProviderCard({ provider, isWinner, metadata }: ProviderCardProps) {
   const config = statusConfig[provider.status];
+  const meta = metadata ?? PROVIDER_METADATA[provider.id];
 
   return (
     <motion.div
@@ -70,12 +74,16 @@ export function ProviderCard({ provider, isWinner }: ProviderCardProps) {
       )}
 
       <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <h3 className="font-semibold text-foreground">{provider.name}</h3>
-          {provider.elevenlabsReady && (
+          {provider.elevenlabsReady ? (
             <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-primary/40 text-primary gap-1">
               <Radio className="w-3 h-3" />
-              Live Agent
+              🟢 LIVE
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-muted-foreground/40 text-muted-foreground gap-1">
+              Simulated
             </Badge>
           )}
         </div>
@@ -85,6 +93,16 @@ export function ProviderCard({ provider, isWinner }: ProviderCardProps) {
         </span>
       </div>
 
+      {meta && (
+        <div className="flex gap-3 text-xs text-muted-foreground mb-2">
+          <span className="flex items-center gap-1">
+            <Star className="w-3 h-3" /> {meta.rating}
+          </span>
+          <span className="flex items-center gap-1">
+            <MapPin className="w-3 h-3" /> {meta.distanceMiles} mi
+          </span>
+        </div>
+      )}
       {provider.slotTime && (
         <p className="font-mono text-sm text-muted-foreground">
           Offered: <span className="text-foreground">{provider.slotTime}</span>
@@ -97,8 +115,13 @@ export function ProviderCard({ provider, isWinner }: ProviderCardProps) {
           animate={{ opacity: 1, scale: 1 }}
           className="mt-3 flex items-center gap-2 text-success font-medium text-sm"
         >
-          <CheckCircle2 className="w-5 h-5" />
-          ✅ Appointment Booked
+          <motion.span
+            animate={{ scale: [1, 1.2, 1], opacity: [1, 0.8, 1] }}
+            transition={{ duration: 1.5, repeat: Infinity, repeatType: "reverse" }}
+          >
+            <CheckCircle2 className="w-5 h-5" />
+          </motion.span>
+          <span className="animate-pulse">✅ Appointment Booked</span>
         </motion.div>
       )}
     </motion.div>

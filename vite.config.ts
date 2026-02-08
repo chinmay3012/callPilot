@@ -11,6 +11,11 @@ export default defineConfig(({ mode }) => ({
     hmr: {
       overlay: false,
     },
+    proxy: {
+      "/api": { target: "http://localhost:8000", changeOrigin: true },
+      "/call-status": { target: "http://localhost:8000", changeOrigin: true },
+      "/start-live-call": { target: "http://localhost:8000", changeOrigin: true },
+    },
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   resolve: {

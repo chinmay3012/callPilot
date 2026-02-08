@@ -1,0 +1,55 @@
+{
+  "doctor": [
+    {"id":"doc-1","name":"Dr. James Park","rating":4.7,"distanceMiles":1.5,"specialty":"Primary care"},
+    {"id":"doc-2","name":"Westside Medical Group","rating":4.5,"distanceMiles":2.2,"specialty":"Primary care"},
+    {"id":"doc-3","name":"Dr. Amy Foster","rating":4.9,"distanceMiles":3,"specialty":"Family medicine"},
+    {"id":"doc-4","name":"Central Care Physicians","rating":4.6,"distanceMiles":1.8,"specialty":"Internal medicine"},
+    {"id":"doc-5","name":"Dr. Michael Torres","rating":4.4,"distanceMiles":2.8,"specialty":"Primary care"}
+  ],
+  "dentist": [],
+  "vet": [
+    {"id":"vet-1","name":"Happy Paws Animal Hospital","rating":4.8,"distanceMiles":1.8},
+    {"id":"vet-2","name":"City Vet Clinic","rating":4.4,"distanceMiles":2.5},
+    {"id":"vet-3","name":"Compassionate Pet Care","rating":4.7,"distanceMiles":1.2},
+    {"id":"vet-4","name":"Animal Wellness Center","rating":4.6,"distanceMiles":3.1},
+    {"id":"vet-5","name":"Paws & Claws Veterinary","rating":4.5,"distanceMiles":2}
+  ],
+  "plumber": [
+    {"id":"plumb-1","name":"QuickFlow Plumbing","rating":4.6,"distanceMiles":3.2},
+    {"id":"plumb-2","name":"Metro Plumbing Co.","rating":4.3,"distanceMiles":1.1},
+    {"id":"plumb-3","name":"Reliable Pipes Inc.","rating":4.7,"distanceMiles":1.5},
+    {"id":"plumb-4","name":"24/7 Emergency Plumbing","rating":4.5,"distanceMiles":2.4},
+    {"id":"plumb-5","name":"Pro Plumbing Solutions","rating":4.4,"distanceMiles":0.9}
+  ],
+  "salon": [
+    {"id":"salon-1","name":"Luxe Hair Studio","rating":4.7,"distanceMiles":0.9},
+    {"id":"salon-2","name":"Downtown Cuts","rating":4.5,"distanceMiles":2},
+    {"id":"salon-3","name":"Shear Excellence","rating":4.8,"distanceMiles":1.3},
+    {"id":"salon-4","name":"Style & Co. Salon","rating":4.6,"distanceMiles":2.6},
+    {"id":"salon-5","name":"The Hair Lounge","rating":4.4,"distanceMiles":1.7}
+  ],
+  "auto_repair": [
+    {"id":"auto-1","name":"Pro Auto Service","rating":4.6,"distanceMiles":2.4},
+    {"id":"auto-2","name":"Neighborhood Garage","rating":4.4,"distanceMiles":1.6},
+    {"id":"auto-3","name":"Quick Lube & Repair","rating":4.7,"distanceMiles":1.1},
+    {"id":"auto-4","name":"Metro Auto Center","rating":4.5,"distanceMiles":2.9},
+    {"id":"auto-5","name":"Trusty Wheels Auto","rating":4.3,"distanceMiles":0.7}
+  ],
+  "therapist": [
+    {"id":"ther-1","name":"Dr. Lisa Chen, LMFT","rating":4.8,"distanceMiles":2},
+    {"id":"ther-2","name":"Mindful Counseling","rating":4.5,"distanceMiles":3.5},
+    {"id":"ther-3","name":"Inner Peace Therapy","rating":4.7,"distanceMiles":1.4},
+    {"id":"ther-4","name":"Wellness Together","rating":4.6,"distanceMiles":2.2},
+    {"id":"ther-5","name":"Clear Path Counseling","rating":4.4,"distanceMiles":2.7}
+  ],
+  "fitness": [
+    {"id":"fit-1","name":"Peak Fitness Studio","rating":4.8,"distanceMiles":1.2,"specialty":"Classes & personal training"},
+    {"id":"fit-2","name":"CoreFit Gym","rating":4.6,"distanceMiles":2.1,"specialty":"Personal trainer"},
+    {"id":"fit-3","name":"Urban Yoga & Strength","rating":4.7,"distanceMiles":0.8,"specialty":"Yoga, Pilates, PT"}
+  ],
+  "home_cleaning": [
+    {"id":"clean-1","name":"Sparkle Clean Co.","rating":4.7,"distanceMiles":1.5},
+    {"id":"clean-2","name":"Fresh Home Services","rating":4.5,"distanceMiles":2.3},
+    {"id":"clean-3","name":"MaidPro Local","rating":4.6,"distanceMiles":0.9}
+  ]
+}

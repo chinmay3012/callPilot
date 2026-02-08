@@ -1,0 +1,55 @@
+# Example prompts for the Support Agent (text or voice)
+
+Use these in the app text input or say them to the ElevenLabs Support Agent.
+Each prompt triggers the find → decide → act flow using tools.
+
+--- 1. Find & book a doctor ---
+I need to find a doctor.
+Book me a doctor appointment for next week.
+Find a primary care physician near me.
+
+--- 2. Find & book a dentist ---
+Find me a dentist.
+I need a dental checkup.
+Book a dentist appointment for tomorrow afternoon.
+
+--- 3. Find & book a vet ---
+I need a vet for my dog.
+Book a vet appointment.
+Find a veterinarian near me.
+
+--- 4. Find & book a therapist ---
+I'd like to see a therapist.
+Book a counseling session.
+Find me a therapist.
+
+--- 5. Book a haircut / salon ---
+Book a haircut.
+I need a salon appointment.
+Find a barber for Saturday.
+
+--- 6. Call & schedule auto repair ---
+Schedule my car for repair.
+Find an auto mechanic.
+I need to get my car serviced.
+
+--- 7. Find & call a plumber ---
+I need a plumber.
+Find and schedule a plumber.
+My sink is leaking, I need someone to come out.
+
+--- 8. Find & schedule home cleaning ---
+Book a house cleaning.
+Find a cleaner for next week.
+I need home cleaning scheduled.
+
+--- 9. Schedule fitness class / personal trainer ---
+Book a fitness class.
+I want a personal trainer.
+Schedule a yoga class.
+
+--- 10. Reschedule or cancel ---
+Reschedule my dentist appointment to Thursday afternoon.
+I need to move my doctor appointment to next week.
+Cancel my appointment with Dr. Park.
+Cancel my vet appointment.

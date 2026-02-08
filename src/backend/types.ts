@@ -5,6 +5,16 @@
  * be generated from the backend's OpenAPI / GraphQL schema.
  */
 
+/** Canonical service types — used for provider dataset selection and UI labels */
+export type ServiceType =
+  | "dentist"
+  | "doctor"
+  | "vet"
+  | "plumber"
+  | "salon"
+  | "auto_repair"
+  | "therapist";
+
 export type AgentStatus =
   | "idle"
   | "searching"
@@ -29,6 +39,8 @@ export interface SwarmStartPayload {
   swarmId: string;
   agents: ProviderAgent[];
   timestamp: number;
+  /** Selected service type; frontend defaults to "dentist" if missing (backward compat) */
+  service_type?: ServiceType;
 }
 
 export interface SwarmUpdatePayload {
@@ -37,6 +49,19 @@ export interface SwarmUpdatePayload {
   status: AgentStatus;
   slotTime: string | null;
   message: string;
+  /** Same as swarm:start; optional for backward compat */
+  service_type?: ServiceType;
+}
+
+/** One entry in the ranked shortlist (earliest availability, rating, distance, user weights) */
+export interface RankedShortlistEntry {
+  rank: number;
+  agentId: string;
+  providerName: string;
+  slotTime: string | null;
+  score: number;
+  rating?: number;
+  distanceMiles?: number;
 }
 
 export interface SwarmCompletedPayload {
@@ -45,6 +70,17 @@ export interface SwarmCompletedPayload {
   winnerName: string | null;
   winnerSlot: string | null;
   allAgents: ProviderAgent[];
+  /** Ranked shortlist for confirmation (from backend scoring) */
+  rankedShortlist?: RankedShortlistEntry[];
+  /** Same as swarm:start; optional for backward compat */
+  service_type?: ServiceType;
+}
+
+/** User preference weights for scoring (sum to 1.0) */
+export interface PreferenceWeights {
+  earliest_availability?: number;
+  rating?: number;
+  distance?: number;
 }
 
 export interface AgentBookedPayload {

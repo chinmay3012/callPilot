@@ -14,4 +14,7 @@
 export type {
   AgentStatus,
   ProviderAgent,
+  RankedShortlistEntry,
+  PreferenceWeights,
+  ServiceType,
 } from "@/backend/types";

@@ -1,0 +1,7 @@
+[
+  {"id": "agent-1", "name": "Dr. Sarah Chen", "elevenlabsReady": true, "rating": 4.8, "distanceMiles": 1.2},
+  {"id": "agent-2", "name": "Smile Dental Clinic", "elevenlabsReady": false, "rating": 4.5, "distanceMiles": 2.8},
+  {"id": "agent-3", "name": "Bright Smiles Co.", "elevenlabsReady": false, "rating": 4.9, "distanceMiles": 4.1},
+  {"id": "agent-4", "name": "Metro Dental Group", "elevenlabsReady": false, "rating": 4.3, "distanceMiles": 0.8},
+  {"id": "agent-5", "name": "Downtown Dental Care", "elevenlabsReady": false, "rating": 4.6, "distanceMiles": 3.5}
+]

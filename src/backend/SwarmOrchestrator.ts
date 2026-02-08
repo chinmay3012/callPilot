@@ -46,25 +46,20 @@
 
 import { eventBus } from "./EventBus";
 import { ELEVENLABS_PROVIDER_CONFIG } from "./elevenlabs.config";
+import { getProvidersByService, getProviderMetadataByService } from "@/data/providerRegistry";
+import { rankProviders } from "@/data/providerMetadata";
 import type {
   ProviderAgent,
   AgentStatus,
+  ServiceType,
   SwarmStartPayload,
   SwarmUpdatePayload,
   SwarmCompletedPayload,
   AgentBookedPayload,
   CallStatusWebhookPayload,
   OutboundCallRequest,
+  RankedShortlistEntry,
 } from "./types";
-
-// ─── Provider Configuration ─────────────────────────────────
-const PROVIDER_CONFIG: Omit<ProviderAgent, "status" | "slotTime">[] = [
-  { id: "agent-1", name: "Dentist A", elevenlabsReady: ELEVENLABS_PROVIDER_CONFIG["agent-1"].elevenlabsReady },
-  { id: "agent-2", name: "Dentist B", elevenlabsReady: ELEVENLABS_PROVIDER_CONFIG["agent-2"].elevenlabsReady },
-  { id: "agent-3", name: "Dentist C", elevenlabsReady: ELEVENLABS_PROVIDER_CONFIG["agent-3"].elevenlabsReady },
-  { id: "agent-4", name: "Dentist D", elevenlabsReady: ELEVENLABS_PROVIDER_CONFIG["agent-4"].elevenlabsReady },
-  { id: "agent-5", name: "Dentist E", elevenlabsReady: ELEVENLABS_PROVIDER_CONFIG["agent-5"].elevenlabsReady },
-];
 
 const MOCK_SLOTS = [
   "8:00 AM", "8:30 AM", "9:00 AM", "9:15 AM", "9:30 AM",
@@ -77,7 +72,9 @@ const MIN_VALID_TIME = "9:30 AM";
 // ─── Utilities ──────────────────────────────────────────────
 function parseTime(t: string): number {
   const [time, period] = t.split(" ");
-  let [h, m] = time.split(":").map(Number);
+  const [hVal, mVal] = time.split(":").map(Number);
+  let h = hVal ?? 0;
+  const m = mVal ?? 0;
   if (period === "PM" && h !== 12) h += 12;
   if (period === "AM" && h === 12) h = 0;
   return h * 60 + m;
@@ -100,6 +97,8 @@ export class SwarmOrchestrator {
   private timeouts: number[] = [];
   private swarmId: string | null = null;
   private winnerSelected = false;
+  /** Service type for this run; drives provider set and payloads. */
+  private serviceType: ServiceType = "dentist";
 
   /**
    * Tracks how many agents have reported results via webhook.
@@ -117,6 +116,7 @@ export class SwarmOrchestrator {
   /**
    * POST /start-swarm
    * Kicks off parallel agent calls and emits real-time updates.
+   * Loads providers dynamically by service_type (dentist → mock_providers, others → support_services).
    *
    * ── ElevenLabs Integration ──────────────────────────────────
    * In production, this method would:
@@ -130,13 +130,17 @@ export class SwarmOrchestrator {
    *      → Continue using simulation (or skip)
    *   4. Return the swarmId for the client to subscribe to
    */
-  start(): void {
+  start(service_type: ServiceType = "dentist"): void {
     this.cleanup();
     this.winnerSelected = false;
+    this.serviceType = service_type;
     this.swarmId = generateSwarmId();
 
-    this.agents = PROVIDER_CONFIG.map((p) => ({
-      ...p,
+    const providerRecords = getProvidersByService(this.serviceType);
+    this.agents = providerRecords.map((p) => ({
+      id: p.id,
+      name: p.name,
+      elevenlabsReady: p.elevenlabsReady,
       status: "searching" as const,
       slotTime: null,
     }));
@@ -146,6 +150,7 @@ export class SwarmOrchestrator {
       swarmId: this.swarmId,
       agents: this.agents,
       timestamp: Date.now(),
+      service_type: this.serviceType,
     };
     eventBus.emit("swarm:start", startPayload);
 
@@ -349,18 +354,18 @@ export class SwarmOrchestrator {
    * elevenlabsReady === true during start().
    */
   private buildOutboundCallRequest(agent: ProviderAgent): OutboundCallRequest {
-    const config = ELEVENLABS_PROVIDER_CONFIG[agent.id as keyof typeof ELEVENLABS_PROVIDER_CONFIG];
+    const config = (ELEVENLABS_PROVIDER_CONFIG as Record<string, { elevenlabsAgentId: string | null; phoneNumber: string }>)[agent.id];
 
     return {
       agent_id: agent.id,
-      elevenlabs_agent_id: config.elevenlabsAgentId ?? "",
+      elevenlabs_agent_id: config?.elevenlabsAgentId ?? "",
       provider_name: agent.name,
       swarm_id: this.swarmId!,
-      phone_number: config.phoneNumber,
+      phone_number: config?.phoneNumber ?? "",
       prompt_overrides: {
         min_valid_time: MIN_VALID_TIME,
         patient_name: "John Doe", // Would come from user input
-        appointment_type: "dental cleaning", // Would come from user input
+        appointment_type: this.serviceType === "dentist" ? "dental cleaning" : this.serviceType,
       },
     };
   }
@@ -428,6 +433,22 @@ export class SwarmOrchestrator {
       };
       eventBus.emit("agent:booked", bookedPayload);
 
+      // Ranked shortlist (service-agnostic: availability, rating, distance)
+      const metadata = getProviderMetadataByService(this.serviceType);
+      const ranked = rankProviders(
+        this.agents.map((a) => ({ id: a.id, name: a.name, slotTime: a.slotTime, status: a.status })),
+        metadata
+      );
+      const rankedShortlist: RankedShortlistEntry[] = ranked.map((r) => ({
+        rank: r.rank,
+        agentId: r.id,
+        providerName: r.name,
+        slotTime: r.slotTime,
+        score: r.score,
+        rating: r.rating,
+        distanceMiles: r.distanceMiles,
+      }));
+
       // Emit swarm:completed with full state
       const completedPayload: SwarmCompletedPayload = {
         swarmId: this.swarmId!,
@@ -435,15 +456,33 @@ export class SwarmOrchestrator {
         winnerName: winner.name,
         winnerSlot: winner.slotTime,
         allAgents: [...this.agents],
+        rankedShortlist,
+        service_type: this.serviceType,
       };
       eventBus.emit("swarm:completed", completedPayload);
     } else {
+      const metadata = getProviderMetadataByService(this.serviceType);
+      const ranked = rankProviders(
+        this.agents.map((a) => ({ id: a.id, name: a.name, slotTime: a.slotTime, status: a.status })),
+        metadata
+      );
+      const rankedShortlist: RankedShortlistEntry[] = ranked.map((r) => ({
+        rank: r.rank,
+        agentId: r.id,
+        providerName: r.name,
+        slotTime: r.slotTime,
+        score: r.score,
+        rating: r.rating,
+        distanceMiles: r.distanceMiles,
+      }));
       const completedPayload: SwarmCompletedPayload = {
         swarmId: this.swarmId!,
         winnerId: null,
         winnerName: null,
         winnerSlot: null,
         allAgents: [...this.agents],
+        rankedShortlist,
+        service_type: this.serviceType,
       };
       eventBus.emit("swarm:completed", completedPayload);
     }
@@ -464,6 +503,7 @@ export class SwarmOrchestrator {
       status,
       slotTime,
       message,
+      service_type: this.serviceType,
     };
     eventBus.emit("swarm:update", payload);
   }

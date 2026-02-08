@@ -1,0 +1,201 @@
+{
+  "description": "CallPilot demo provider directory — single source for find_provider, swarm, and Support Agent. Used for full workflow showcase.",
+  "version": "1.0",
+  "providers": [
+    {
+      "id": "agent-1",
+      "name": "Dr. Sarah Chen",
+      "service_type": "dentist",
+      "rating": 4.8,
+      "distanceMiles": 1.2,
+      "address": "123 Main St, Suite 100",
+      "phone": "+1-555-0101",
+      "hours": "Mon–Fri 8:00 AM – 5:00 PM",
+      "specialty": "General dentistry",
+      "elevenlabsReady": true
+    },
+    {
+      "id": "agent-2",
+      "name": "Smile Dental Clinic",
+      "service_type": "dentist",
+      "rating": 4.5,
+      "distanceMiles": 2.8,
+      "address": "456 Oak Ave",
+      "phone": "+1-555-0102",
+      "hours": "Mon–Sat 9:00 AM – 6:00 PM",
+      "specialty": "Family dental",
+      "elevenlabsReady": false
+    },
+    {
+      "id": "agent-3",
+      "name": "Bright Smiles Co.",
+      "service_type": "dentist",
+      "rating": 4.9,
+      "distanceMiles": 4.1,
+      "address": "789 Elm Blvd",
+      "phone": "+1-555-0103",
+      "hours": "Mon–Fri 7:30 AM – 4:30 PM",
+      "specialty": "Cosmetic & general",
+      "elevenlabsReady": false
+    },
+    {
+      "id": "agent-4",
+      "name": "Metro Dental Group",
+      "service_type": "dentist",
+      "rating": 4.3,
+      "distanceMiles": 0.8,
+      "address": "321 Center St",
+      "phone": "+1-555-0104",
+      "hours": "Mon–Fri 8:00 AM – 5:00 PM",
+      "specialty": "General dentistry",
+      "elevenlabsReady": false
+    },
+    {
+      "id": "agent-5",
+      "name": "Downtown Dental Care",
+      "service_type": "dentist",
+      "rating": 4.6,
+      "distanceMiles": 3.5,
+      "address": "555 Commerce Dr",
+      "phone": "+1-555-0105",
+      "hours": "Tue–Sat 9:00 AM – 5:00 PM",
+      "specialty": "Family & pediatric",
+      "elevenlabsReady": false
+    },
+    {
+      "id": "doc-1",
+      "name": "Dr. James Park",
+      "service_type": "doctor",
+      "rating": 4.7,
+      "distanceMiles": 1.5,
+      "address": "100 Medical Plaza",
+      "phone": "+1-555-0201",
+      "hours": "Mon–Fri 8:00 AM – 4:00 PM",
+      "specialty": "Primary care"
+    },
+    {
+      "id": "doc-2",
+      "name": "Westside Medical Group",
+      "service_type": "doctor",
+      "rating": 4.5,
+      "distanceMiles": 2.2,
+      "address": "200 Health Way",
+      "phone": "+1-555-0202",
+      "hours": "Mon–Fri 9:00 AM – 5:00 PM",
+      "specialty": "Primary care"
+    },
+    {
+      "id": "doc-3",
+      "name": "Dr. Amy Foster",
+      "service_type": "doctor",
+      "rating": 4.9,
+      "distanceMiles": 3,
+      "address": "300 Care Lane",
+      "phone": "+1-555-0203",
+      "hours": "Mon–Thu 8:00 AM – 5:00 PM",
+      "specialty": "Family medicine"
+    },
+    {
+      "id": "vet-1",
+      "name": "Happy Paws Animal Hospital",
+      "service_type": "vet",
+      "rating": 4.8,
+      "distanceMiles": 1.8,
+      "address": "400 Pet Care Rd",
+      "phone": "+1-555-0301",
+      "hours": "Mon–Sat 8:00 AM – 6:00 PM"
+    },
+    {
+      "id": "vet-2",
+      "name": "City Vet Clinic",
+      "service_type": "vet",
+      "rating": 4.4,
+      "distanceMiles": 2.5,
+      "address": "500 Animal Ave",
+      "phone": "+1-555-0302",
+      "hours": "Mon–Fri 9:00 AM – 5:00 PM"
+    },
+    {
+      "id": "plumb-1",
+      "name": "QuickFlow Plumbing",
+      "service_type": "plumber",
+      "rating": 4.6,
+      "distanceMiles": 3.2,
+      "address": "600 Pipe St",
+      "phone": "+1-555-0401",
+      "hours": "Mon–Sat 7:00 AM – 7:00 PM"
+    },
+    {
+      "id": "plumb-2",
+      "name": "Metro Plumbing Co.",
+      "service_type": "plumber",
+      "rating": 4.3,
+      "distanceMiles": 1.1,
+      "address": "700 Water Way",
+      "phone": "+1-555-0402",
+      "hours": "Mon–Fri 8:00 AM – 5:00 PM"
+    },
+    {
+      "id": "salon-1",
+      "name": "Luxe Hair Studio",
+      "service_type": "salon",
+      "rating": 4.7,
+      "distanceMiles": 0.9,
+      "address": "800 Style Blvd",
+      "phone": "+1-555-0501",
+      "hours": "Tue–Sat 10:00 AM – 7:00 PM"
+    },
+    {
+      "id": "salon-2",
+      "name": "Downtown Cuts",
+      "service_type": "salon",
+      "rating": 4.5,
+      "distanceMiles": 2,
+      "address": "900 Trim Ave",
+      "phone": "+1-555-0502",
+      "hours": "Mon–Fri 9:00 AM – 6:00 PM"
+    },
+    {
+      "id": "auto-1",
+      "name": "Pro Auto Service",
+      "service_type": "auto_repair",
+      "rating": 4.6,
+      "distanceMiles": 2.4,
+      "address": "1000 Garage Rd",
+      "phone": "+1-555-0601",
+      "hours": "Mon–Sat 8:00 AM – 5:00 PM"
+    },
+    {
+      "id": "auto-2",
+      "name": "Neighborhood Garage",
+      "service_type": "auto_repair",
+      "rating": 4.4,
+      "distanceMiles": 1.6,
+      "address": "1100 Motor St",
+      "phone": "+1-555-0602",
+      "hours": "Mon–Fri 7:30 AM – 5:30 PM"
+    },
+    {
+      "id": "ther-1",
+      "name": "Dr. Lisa Chen, LMFT",
+      "service_type": "therapist",
+      "rating": 4.8,
+      "distanceMiles": 2,
+      "address": "1200 Wellness Dr",
+      "phone": "+1-555-0701",
+      "hours": "Mon–Thu 9:00 AM – 6:00 PM",
+      "specialty": "Individual & family"
+    },
+    {
+      "id": "ther-2",
+      "name": "Mindful Counseling",
+      "service_type": "therapist",
+      "rating": 4.5,
+      "distanceMiles": 3.5,
+      "address": "1300 Peace Ln",
+      "phone": "+1-555-0702",
+      "hours": "Mon–Fri 10:00 AM – 7:00 PM",
+      "specialty": "Anxiety & stress"
+    }
+  ]
+}

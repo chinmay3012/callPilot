@@ -1,206 +1,215 @@
 /**
  * useSwarmController — The SOLE interface between the UI and the backend.
  *
- * ═══════════════════════════════════════════════════════════════════════
- *  ARCHITECTURE BOUNDARY
- * ═══════════════════════════════════════════════════════════════════════
- *
- * This hook is the ONLY place in the frontend that may import from
- * `src/backend/*`. All other components, hooks, and pages MUST interact
- * with the swarm exclusively through this controller's return value.
- *
- * Think of this as the "client SDK" for the swarm service:
- *
- *   ┌──────────────┐       ┌──────────────────┐       ┌────────────────┐
- *   │   UI Layer   │ ───▶  │ SwarmController  │ ───▶  │   Backend      │
- *   │  (React)     │       │ (this hook)      │       │ (Orchestrator) │
- *   └──────────────┘       └──────────────────┘       └────────────────┘
- *       reads state           owns lifecycle            emits events
- *       calls actions         subscribes to events      runs agents
- *
- * ─── Migration to real backend ─────────────────────────────────────────
- *
- * When moving to a real Node.js + Socket.io backend:
- *
- *   1. Replace `new SwarmOrchestrator().start()`
- *      → `fetch('/api/start-swarm', { method: 'POST' })`
- *
- *   2. Replace `eventBus.on('swarm:*', ...)`
- *      → `socket.on('swarm:*', ...)`
- *
- *   3. Replace `orchestratorRef.current?.cleanup()`
- *      → `fetch('/api/cancel-swarm', { method: 'POST' })`
- *        or `socket.emit('cancel-swarm')`
- *
- *   No UI changes required — the return type stays identical.
- *
- * ─── ElevenLabs integration (future) ───────────────────────────────────
- *
- *   The real backend would use ElevenLabs Conversational AI to:
- *     - Initiate outbound voice calls per agent
- *     - Receive slot offers via tool-calling webhooks
- *     - Emit the same event shapes this controller already consumes
- *
- *   This controller needs zero changes for that integration.
- * ═══════════════════════════════════════════════════════════════════════
+ * Uses the Python FastAPI backend when available (POST + WebSocket).
+ * Falls back to in-browser simulation if the API is unreachable.
  */
 
 import { useState, useCallback, useRef, useEffect } from "react";
 
-// ── Backend imports (ONLY allowed in this file) ──────────────────────
 import { SwarmOrchestrator } from "@/backend/SwarmOrchestrator";
 import { eventBus } from "@/backend/EventBus";
 import type {
   ProviderAgent,
+  ServiceType,
   SwarmStartPayload,
   SwarmUpdatePayload,
   SwarmCompletedPayload,
+  RankedShortlistEntry,
+  PreferenceWeights,
 } from "@/backend/types";
 
-// ── Public types (re-exported for consumers) ─────────────────────────
-export type { ProviderAgent } from "@/backend/types";
+export type { ProviderAgent, RankedShortlistEntry, PreferenceWeights, ServiceType } from "@/backend/types";
 
-/**
- * The public API surface of the swarm controller.
- * UI components should only depend on this interface.
- */
+const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
+
 export interface SwarmControllerResult {
-  /** Current state of all provider agents */
   agents: ProviderAgent[];
-  /** The winning agent (null until swarm completes with a valid booking) */
   winner: ProviderAgent | null;
-  /** Whether the swarm is currently running */
+  /** Ranked shortlist from backend (earliest availability, rating, distance, user weights) */
+  rankedShortlist: RankedShortlistEntry[];
+  /** Current service type (from swarm:start); defaults to "dentist" if missing */
+  serviceType: ServiceType;
   isRunning: boolean;
-  /** Chronological log of swarm events */
   logs: string[];
-  /**
-   * Kick off a new swarm run.
-   * Production: POST /api/start-swarm
-   */
-  startSwarm: () => void;
-  /**
-   * Cancel and reset the current swarm.
-   * Production: POST /api/cancel-swarm + clear local state
-   */
+  startSwarm: (serviceType?: string, options?: { maxProviders?: number; preferenceWeights?: PreferenceWeights }) => void;
   reset: () => void;
 }
+
+const DEFAULT_SERVICE_TYPE: ServiceType = "dentist";
 
 export function useSwarmController(): SwarmControllerResult {
   const [agents, setAgents] = useState<ProviderAgent[]>([]);
   const [winner, setWinner] = useState<ProviderAgent | null>(null);
+  const [rankedShortlist, setRankedShortlist] = useState<RankedShortlistEntry[]>([]);
+  const [serviceType, setServiceType] = useState<ServiceType>(DEFAULT_SERVICE_TYPE);
   const [isRunning, setIsRunning] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
 
+  const wsRef = useRef<WebSocket | null>(null);
   const orchestratorRef = useRef<SwarmOrchestrator | null>(null);
+  const useApiRef = useRef<boolean | null>(null); // null = not yet tried
 
   const addLog = useCallback((msg: string) => {
     setLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);
   }, []);
 
-  // ── Event subscriptions ─────────────────────────────────────────────
-  // These inline subscriptions replace the previous useRealtimeEvents hook.
-  // In production, swap `eventBus.on(...)` → `socket.on(...)`.
-  // The handler shapes remain identical.
+  const reset = useCallback(() => {
+    wsRef.current?.close();
+    wsRef.current = null;
+    orchestratorRef.current?.cleanup();
+    orchestratorRef.current = null;
+    useApiRef.current = null;
+    setAgents([]);
+    setWinner(null);
+    setRankedShortlist([]);
+    setServiceType(DEFAULT_SERVICE_TYPE);
+    setIsRunning(false);
+    setLogs([]);
+  }, []);
 
-  useEffect(() => {
-    /**
-     * swarm:start — Backend initialized agents and assigned a swarm ID.
-     * Production: Socket.io emits this after POST /api/start-swarm resolves.
-     */
+  const startSwarm = useCallback(async (serviceType = "dentist", options?: { maxProviders?: number; preferenceWeights?: PreferenceWeights }) => {
+    reset();
+    setIsRunning(true);
+    setLogs([]);
+    setAgents([]);
+
+    const tryApi = useApiRef.current !== false;
+    const maxProviders = Math.min(Math.max(1, options?.maxProviders ?? 5), 15);
+
+    if (tryApi) {
+      try {
+        const res = await fetch(`${API_BASE}/api/appointments/search`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            service_type: serviceType,
+            max_providers: maxProviders,
+            preference_weights: options?.preferenceWeights ?? undefined,
+          }),
+        });
+        if (!res.ok) throw new Error("API error");
+        const data = await res.json();
+        const swarmId = data.swarm_id;
+        const wsUrl =
+          data.websocket_url ||
+          (typeof window !== "undefined"
+            ? `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${new URL(API_BASE).host}/api/appointments/ws/${swarmId}`
+            : `ws://localhost:8000/api/appointments/ws/${swarmId}`);
+
+        useApiRef.current = true;
+        addLog(`🚀 Swarm initiated — dispatching ${maxProviders} AI agents...`);
+        addLog(`📡 Swarm ID: ${swarmId}`);
+
+        const ws = new WebSocket(wsUrl);
+        wsRef.current = ws;
+
+        ws.onmessage = (ev) => {
+          try {
+            const { event, data } = JSON.parse(ev.data);
+            if (event === "swarm:start") {
+              setAgents((data.agents || []).map(normalizeAgent));
+              if (data.service_type) setServiceType(data.service_type);
+            } else if (event === "swarm:update") {
+              setAgents((prev) =>
+                prev.map((a) =>
+                  a.id === data.agentId
+                    ? { ...a, status: data.status, slotTime: data.slotTime ?? a.slotTime }
+                    : a
+                )
+              );
+              if (data.message) addLog(data.message);
+            } else if (event === "agent:booked") {
+              if (data.providerName && data.slotTime) {
+                addLog(`🤖 ElevenLabs agent confirmed booking at ${data.slotTime}`);
+              }
+            } else if (event === "swarm:completed") {
+              const all = (data.allAgents || []).map(normalizeAgent);
+              setAgents(all);
+              setRankedShortlist(Array.isArray(data.rankedShortlist) ? data.rankedShortlist : []);
+              setIsRunning(false);
+              if (data.winnerId && data.winnerName && data.winnerSlot) {
+                const w = all.find((a: ProviderAgent) => a.id === data.winnerId) ?? null;
+                setWinner(w);
+                addLog(`🏆 Winner: ${data.winnerName} at ${data.winnerSlot}`);
+              } else {
+                addLog("⚠️ No valid slots found. Try again.");
+              }
+            }
+          } catch {
+            /* ignore parse errors */
+          }
+        };
+
+        ws.onclose = () => {
+          wsRef.current = null;
+        };
+
+        ws.onerror = () => {
+          ws.close();
+        };
+
+        return;
+      } catch (_) {
+        useApiRef.current = false;
+        addLog("📴 API unreachable — using in-browser simulation");
+      }
+    }
+
+    // Fallback: in-browser SwarmOrchestrator
+    const orchestrator = new SwarmOrchestrator();
+    orchestratorRef.current = orchestrator;
+
     const unsubStart = eventBus.on("swarm:start", (payload: unknown) => {
-      const data = payload as SwarmStartPayload;
-      setAgents(data.agents);
-      addLog("🚀 Swarm initiated — dispatching 5 AI agents...");
-      addLog(`📡 Swarm ID: ${data.swarmId}`);
+      const d = payload as SwarmStartPayload;
+      setAgents(d.agents);
+      setServiceType((d.service_type as ServiceType) ?? DEFAULT_SERVICE_TYPE);
+      addLog(`🚀 Swarm initiated — dispatching ${d.agents.length} AI agents...`);
+      addLog(`📡 Swarm ID: ${d.swarmId}`);
     });
-
-    /**
-     * swarm:update — A single agent's status changed.
-     * Production: Socket.io emits this as each voice call progresses.
-     */
     const unsubUpdate = eventBus.on("swarm:update", (payload: unknown) => {
-      const data = payload as SwarmUpdatePayload;
-
+      const d = payload as SwarmUpdatePayload;
       setAgents((prev) =>
         prev.map((a) =>
-          a.id === data.agentId
-            ? { ...a, status: data.status, slotTime: data.slotTime ?? a.slotTime }
-            : a
+          a.id === d.agentId ? { ...a, status: d.status, slotTime: d.slotTime ?? a.slotTime } : a
         )
       );
-
-      if (data.message) {
-        addLog(data.message);
-      }
+      if (d.message) addLog(d.message);
     });
-
-    /**
-     * swarm:completed — Backend resolved the swarm (winner or no-result).
-     * Production: Socket.io emits this with final state + booking confirmation.
-     */
     const unsubCompleted = eventBus.on("swarm:completed", (payload: unknown) => {
-      const data = payload as SwarmCompletedPayload;
-
-      // Apply authoritative final state from the server
-      setAgents(data.allAgents);
+      const d = payload as SwarmCompletedPayload;
+      setAgents(d.allAgents);
+      setRankedShortlist(d.rankedShortlist ?? []);
       setIsRunning(false);
-
-      if (data.winnerId && data.winnerName && data.winnerSlot) {
-        const winnerAgent = data.allAgents.find((a) => a.id === data.winnerId) ?? null;
-        setWinner(winnerAgent);
-        addLog(`🏆 Winner: ${data.winnerName} at ${data.winnerSlot}`);
+      if (d.winnerId && d.winnerName && d.winnerSlot) {
+        const w = d.allAgents.find((a) => a.id === d.winnerId) ?? null;
+        setWinner(w);
+        addLog(`🏆 Winner: ${d.winnerName} at ${d.winnerSlot}`);
       } else {
         addLog("⚠️ No valid slots found. Try again.");
       }
     });
 
-    // Cleanup all subscriptions on unmount
+    orchestrator.start(serviceType as ServiceType);
+
     return () => {
       unsubStart();
       unsubUpdate();
       unsubCompleted();
     };
-  }, [addLog]);
+  }, [addLog, reset]);
 
-  // ── Actions ─────────────────────────────────────────────────────────
+  useEffect(() => () => reset(), [reset]);
 
-  const startSwarm = useCallback(() => {
-    // Clean up any previous run
-    orchestratorRef.current?.cleanup();
+  return { agents, winner, rankedShortlist, serviceType, isRunning, logs, startSwarm, reset };
+}
 
-    setIsRunning(true);
-    setWinner(null);
-    setLogs([]);
-    setAgents([]);
-
-    /**
-     * Production replacement:
-     *   await fetch('/api/start-swarm', { method: 'POST' });
-     *
-     * The server would create the orchestrator, initiate ElevenLabs
-     * voice calls, and emit events over Socket.io. This client would
-     * receive them through the subscriptions above.
-     */
-    const orchestrator = new SwarmOrchestrator();
-    orchestratorRef.current = orchestrator;
-    orchestrator.start();
-  }, []);
-
-  const reset = useCallback(() => {
-    /**
-     * Production replacement:
-     *   await fetch('/api/cancel-swarm', { method: 'POST' });
-     *   socket.emit('cancel-swarm');
-     *
-     * The server would terminate active calls and clean up resources.
-     */
-    orchestratorRef.current?.cleanup();
-    orchestratorRef.current = null;
-    setAgents([]);
-    setWinner(null);
-    setIsRunning(false);
-    setLogs([]);
-  }, []);
-
-  return { agents, winner, isRunning, logs, startSwarm, reset };
+function normalizeAgent(a: Record<string, unknown>): ProviderAgent {
+  return {
+    id: String(a.id ?? ""),
+    name: String(a.name ?? ""),
+    status: String(a.status ?? "idle") as ProviderAgent["status"],
+    slotTime: a.slotTime != null ? String(a.slotTime) : null,
+    elevenlabsReady: Boolean(a.elevenlabsReady),
+  };
 }

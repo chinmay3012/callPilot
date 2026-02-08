@@ -1,0 +1,44 @@
+{
+  "type": "webhook",
+  "name": "list_my_appointments",
+  "description": "List all upcoming appointments for the user so they can reschedule or cancel an existing booking.",
+  "disable_interruptions": false,
+  "force_pre_tool_speech": "auto",
+  "tool_call_sound": null,
+  "tool_call_sound_behavior": "auto",
+  "tool_error_handling_mode": "auto",
+  "execution_mode": "immediate",
+  "api_schema": {
+    "url": "https://nonconsecutively-semiexpository-lorie.ngrok-free.dev/support-agent/webhook",
+    "method": "POST",
+    "path_params_schema": [],
+    "query_params_schema": [],
+    "request_body_schema": {
+      "id": "body",
+      "type": "object",
+      "description": "Request to fetch the user's current appointments.",
+      "properties": [
+        {
+          "id": "intent",
+          "type": "string",
+          "value_type": "llm_prompt",
+          "description": "Short description of why the appointments are being requested (e.g. reschedule, cancel, view).",
+          "dynamic_variable": "",
+          "constant_value": "",
+          "enum": null,
+          "is_system_provided": false,
+          "required": false
+        }
+      ],
+      "required": false,
+      "value_type": "llm_prompt"
+    },
+    "request_headers": [],
+    "auth_connection": null
+  },
+  "assignments": [],
+  "response_timeout_secs": 20,
+  "dynamic_variables": {
+    "dynamic_variable_placeholders": {}
+  }
+}
